@@ -1,0 +1,67 @@
+{
+    "name": "langsys-js-angular",
+    "version": "0.1.0",
+    "description": "Angular binding over langsys-js-typescript — signals-first translation service, pipe, and DOM directives for the Langsys Translation Manager.",
+    "license": "MIT",
+    "author": "Langsys",
+    "homepage": "https://github.com/langsys/langsys-js-angular",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/langsys/langsys-js-angular.git"
+    },
+    "bugs": {
+        "url": "https://github.com/langsys/langsys-js-angular/issues"
+    },
+    "keywords": [
+        "angular",
+        "i18n",
+        "internationalization",
+        "localization",
+        "translation",
+        "langsys",
+        "signals"
+    ],
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "build": "ng-packagr -p ng-package.json",
+        "pack:lib": "npm run build && cd dist && npm pack",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "lint": "prettier --check . && eslint .",
+        "format": "prettier --write .",
+        "release": "./_dev_/publish.sh"
+    },
+    "peerDependencies": {
+        "@angular/common": "^17.0.0 || ^18.0.0 || ^19.0.0 || ^20.0.0",
+        "@angular/core": "^17.0.0 || ^18.0.0 || ^19.0.0 || ^20.0.0",
+        "rxjs": "^7.4.0"
+    },
+    "dependencies": {
+        "langsys-js-typescript": "^0.4.1",
+        "tslib": "^2.6.0"
+    },
+    "devDependencies": {
+        "@angular/common": "^17.3.0",
+        "@angular/compiler": "^17.3.0",
+        "@angular/compiler-cli": "^17.3.0",
+        "@angular/core": "^17.3.0",
+        "@angular/platform-browser": "^17.3.12",
+        "@angular/platform-browser-dynamic": "^17.3.12",
+        "@eslint/js": "^9.39.5",
+        "eslint": "^9.39.5",
+        "eslint-config-prettier": "^9.1.2",
+        "jsdom": "^29.1.1",
+        "ng-packagr": "^17.3.0",
+        "prettier": "^3.9.6",
+        "rxjs": "^7.8.1",
+        "typescript": "~5.4.5",
+        "typescript-eslint": "^8.65.0",
+        "vitest": "^1.6.1",
+        "zone.js": "~0.14.4"
+    },
+    "sideEffects": false
+}

@@ -1,0 +1,13 @@
+.DS_Store
+node_modules
+/dist
+/coverage
+/out-tsc
+
+# Lockfiles
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Generated
+CHANGELOG.md
