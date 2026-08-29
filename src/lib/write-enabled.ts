@@ -1,4 +1,4 @@
-import { DestroyRef, PLATFORM_ID, afterNextRender, inject, signal, type Signal } from '@angular/core';
+import { DestroyRef, NgZone, PLATFORM_ID, afterNextRender, inject, signal, type Signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { writeEnabled as coreWriteEnabled } from 'langsys-js-typescript';
 
@@ -50,6 +50,13 @@ import { writeEnabled as coreWriteEnabled } from 'langsys-js-typescript';
  * `@defer`, conditional blocks) subscribe to a signal that already holds the
  * real value, so the deferral costs nothing after the first render.
  *
+ * ## Known limit
+ * Angular v19 incremental hydration (`@defer (hydrate on …)`) hydrates a subtree
+ * long after this guard has dropped, so a deferred block branching on
+ * `writeEnabled` can still hydrate against server markup built from `undefined`.
+ * A render-pass-scoped guard cannot see that; it needs the value pinned per
+ * hydration boundary. Out of scope here and filed to the program's E2E wave.
+ *
  * Must be called from an injection context (`afterNextRender` and `DestroyRef`
  * both require one); `LangsysService` calls it in its constructor.
  */
@@ -72,11 +79,28 @@ export function createWriteEnabledSignal(): Signal<boolean | undefined> {
     if (!isPlatformBrowser(inject(PLATFORM_ID))) return out.asReadonly();
 
     let unsubscribe: (() => void) | undefined;
+    const zone = inject(NgZone);
 
     afterNextRender(() => {
-        // `subscribe` fires synchronously with the current value, so the real
-        // value lands on the first change-detection pass after hydration.
-        unsubscribe = coreWriteEnabled.subscribe((next) => out.set(next));
+        // `subscribe` fires synchronously with the current value, so adoption
+        // happens here; later capability changes (a grant arriving mid-session)
+        // come through the same callback.
+        //
+        // The `zone.run` is not ceremony. `afterNextRender` invokes its callback
+        // via `runOutsideAngular`, and a zone-based app binds no
+        // `ChangeDetectionScheduler` — that is only provided by
+        // `provideZonelessChangeDetection`. So on the zone-based v17 that this
+        // package's peer range still floors at, writing the signal here would
+        // update it without scheduling a single change-detection pass: a
+        // template branching on `writeEnabled` would keep painting `undefined`
+        // until some unrelated event happened to tick the zone, which on an idle
+        // hydrated page can be never. Re-entering the zone is what turns the
+        // adoption into a repaint.
+        //
+        // Safe in both worlds: under `provideZonelessChangeDetection` `NgZone`
+        // is `NoopNgZone`, whose `run` simply calls the function, and the
+        // scheduler picks the write up on its own.
+        unsubscribe = coreWriteEnabled.subscribe((next) => zone.run(() => out.set(next)));
     });
 
     inject(DestroyRef).onDestroy(() => unsubscribe?.());

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Component, PLATFORM_ID } from '@angular/core';
+import { Component, NgZone, PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 /** Build a fake base-SDK Signal, counting subscriptions. */
@@ -126,6 +126,31 @@ describe('createWriteEnabledSignal', () => {
             core.set(true);
 
             expect(sig()).toBe(true);
+        });
+    });
+
+    describe('change detection', () => {
+        /**
+         * `afterNextRender` invokes its callback via `runOutsideAngular`, and a
+         * zone-based app binds no `ChangeDetectionScheduler` (only
+         * `provideZonelessChangeDetection` does). So a signal written from that
+         * callback updates without scheduling a single CD pass — the value is
+         * correct and the screen never repaints until some unrelated event ticks
+         * the zone. On an idle hydrated page that can be never.
+         */
+        it('writes inside the Angular zone, so a repaint is scheduled', () => {
+            const { core } = setup('browser', undefined);
+            render();
+
+            const zone = TestBed.inject(NgZone);
+            const runSpy = vi.spyOn(zone, 'run');
+
+            // A capability change arriving after adoption — e.g. a write grant
+            // supplied post-login. Nothing else is touching the zone here, so
+            // the spy is unambiguous.
+            core.set(true);
+
+            expect(runSpy).toHaveBeenCalled();
         });
     });
 
