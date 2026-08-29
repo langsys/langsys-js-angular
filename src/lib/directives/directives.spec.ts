@@ -35,12 +35,17 @@ vi.mock('langsys-js-typescript', () => {
             spies.phraseDestroy();
         }
     }
-    return { Translate, Phrase, PHRASE_MARKER_ATTR: 'data-ls-phrase' };
+    // Deliberately NOT the real attribute name. A double echoing the production
+    // value cannot tell an imported constant from a hardcoded literal — both
+    // stamp the same string and the test passes either way. The sentinel makes
+    // the two outcomes different, so the assertion below can actually fail.
+    return { Translate, Phrase, PHRASE_MARKER_ATTR: 'data-ls-phrase-sentinel' };
 });
 
 const { TranslateDirective } = await import('./translate.directive');
 const { PhraseDirective } = await import('./phrase.directive');
 const { DontTranslateDirective } = await import('./dont-translate.directive');
+const { PHRASE_MARKER_ATTR } = await import('langsys-js-typescript');
 
 describe('DontTranslateDirective', () => {
     @Component({
@@ -55,9 +60,30 @@ describe('DontTranslateDirective', () => {
         fixture.detectChanges();
         const el = fixture.nativeElement.querySelector('span') as HTMLElement;
 
+        // `translate="no"` is the whole mechanism: it is what the core's
+        // `isTranslationExcluded()` honours, and what browsers respect.
         expect(el.getAttribute('translate')).toBe('no');
-        expect(el.hasAttribute('data-ls-dont-translate')).toBe(true);
         expect(el.textContent).toContain('Kangen Water®');
+    });
+});
+
+describe('DontTranslateDirective — no invented contract', () => {
+    @Component({
+        standalone: true,
+        imports: [DontTranslateDirective],
+        template: `<span lsDontTranslate>Kangen Water®</span>`,
+    })
+    class Host2 {}
+
+    it('stamps no binding-invented attribute the core does not read', () => {
+        const fixture = TestBed.createComponent(Host2);
+        fixture.detectChanges();
+        const el = fixture.nativeElement.querySelector('span') as HTMLElement;
+
+        // `data-ls-dont-translate` was inert — `isTranslationExcluded()` honours
+        // `translate="no"` and `data-notrans`, never this. A binding-invented DOM
+        // contract that nothing consumes is surface pretending to be behaviour.
+        expect(el.hasAttribute('data-ls-dont-translate')).toBe(false);
     });
 });
 
@@ -155,11 +181,16 @@ describe('PhraseDirective', () => {
 
     beforeEach(() => vi.clearAllMocks());
 
-    it('marks the host with the phrase attribute the renderer looks for', () => {
+    it("marks the host with the CORE's phrase attribute, not a hardcoded copy", () => {
         const fixture = TestBed.createComponent(Host);
         fixture.detectChanges();
         const el = fixture.nativeElement.querySelector('p') as HTMLElement;
-        expect(el.hasAttribute('data-ls-phrase')).toBe(true);
+
+        // The attribute is a cross-repo contract. Reading it from the core's
+        // export means a rename there fails loudly here, instead of silently
+        // orphaning every phrase this binding stamps.
+        expect(el.hasAttribute(PHRASE_MARKER_ATTR)).toBe(true);
+        expect(el.hasAttribute('data-ls-phrase')).toBe(false);
     });
 
     it('constructs the vanilla Phrase with category and params', () => {

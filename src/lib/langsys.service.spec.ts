@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { signal as ngSignal } from '@angular/core';
 
 /** Build a fake base-SDK Signal. */
 function fakeSignal<T>(initial: T) {
@@ -64,6 +65,7 @@ vi.mock('langsys-js-typescript', () => {
     return {
         LangsysApp,
         LangsysAppAPI,
+        writeEnabled: fakeSignal<boolean | undefined>(undefined),
         tSignal: t,
         currentlyLoadedLocale,
         sTranslations,
@@ -229,25 +231,56 @@ describe('LangsysService', () => {
         });
     });
 
-    describe('delegation', () => {
-        it('forwards helper calls to the base SDK', async () => {
+    describe('write capability', () => {
+        it('exposes writeEnabled, held at undefined until the first render', () => {
             const svc = make();
-            await svc.getCountries('es-ES');
-            expect(LangsysApp.getCountries).toHaveBeenCalledWith('es-ES');
 
-            svc.detectPreferredLocale('fr-FR', ['en-US']);
-            expect(LangsysApp.detectPreferredLocale).toHaveBeenCalledWith('fr-FR', ['en-US']);
-
-            await svc.refresh();
-            expect(LangsysApp.refresh).toHaveBeenCalled();
-
-            svc.getLocaleName('en-US', false, 'es-ES');
-            expect(LangsysApp.getLocaleName).toHaveBeenCalledWith('en-US', false, 'es-ES');
+            // Tri-state: `undefined` is "hold", never "read-only".
+            expect(svc.writeEnabled()).toBeUndefined();
         });
 
-        it('exposes translationsLoadingPromise', async () => {
+        it('keyType is still surfaced unchanged, for diagnostics only', async () => {
             const svc = make();
-            await expect(svc.translationsLoadingPromise).resolves.toBeUndefined();
+            await svc.init();
+
+            expect(svc.keyType()).toBe('read');
+        });
+    });
+
+    describe('write grant', () => {
+        it('passes a string grant to init unchanged', async () => {
+            const svc = make({ writeGrant: 'tok_static' });
+            await svc.init();
+
+            const arg = (LangsysApp.init as unknown as { mock: { calls: Record<string, unknown>[][] } }).mock
+                .calls[0][0];
+            expect(arg['writeGrant']).toBe('tok_static');
+        });
+
+        it('adapts a signal grant into a provider resolved per request', async () => {
+            const grant = ngSignal<string | null>('tok_1');
+            const svc = make({ writeGrant: grant });
+            await svc.init();
+
+            const arg = (LangsysApp.init as unknown as { mock: { calls: Record<string, unknown>[][] } }).mock
+                .calls[0][0];
+            const provider = arg['writeGrant'] as () => string | null;
+
+            expect(typeof provider).toBe('function');
+            expect(provider()).toBe('tok_1');
+
+            // The whole point: a refresh after init reaches the very next request.
+            grant.set('tok_2');
+            expect(provider()).toBe('tok_2');
+        });
+
+        it('leaves writeGrant undefined when none is configured', async () => {
+            const svc = make();
+            await svc.init();
+
+            const arg = (LangsysApp.init as unknown as { mock: { calls: Record<string, unknown>[][] } }).mock
+                .calls[0][0];
+            expect(arg['writeGrant']).toBeUndefined();
         });
     });
 });

@@ -11,7 +11,8 @@ import {
     type SimpleChanges,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Phrase } from 'langsys-js-typescript';
+import { PHRASE_MARKER_ATTR, Phrase } from 'langsys-js-typescript';
+import type { ParamPrimitive } from 'langsys-js-typescript';
 
 /**
  * Keep a markup-bearing run of text as **one** translatable phrase.
@@ -38,10 +39,14 @@ export class PhraseDirective implements AfterViewInit, OnChanges, OnDestroy {
     /** Category the phrase is registered under. */
     @Input() category?: string;
     /** Runtime values (e.g. `{ n: 3 }` for pluralization). */
-    @Input() params?: Record<string, unknown>;
+    @Input() params?: Record<string, ParamPrimitive>;
 
-    /** Marks the host so the SDK's renderer can find it. */
-    @HostBinding('attr.data-ls-phrase') readonly marker = '';
+    /**
+     * Marks the host so the SDK's tokenizer finds it. The attribute name comes
+     * from the core's `PHRASE_MARKER_ATTR` rather than a literal: it is a
+     * cross-repo contract, and a duplicated constant is how it silently drifts.
+     */
+    @HostBinding(`attr.${PHRASE_MARKER_ATTR}`) readonly marker = '';
 
     private readonly host = inject(ElementRef<HTMLElement>);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));

@@ -15,6 +15,8 @@ import {
 import { LANGSYS_CONFIG } from './config';
 import { createLocaleStore, type LocaleStore } from './locale-store';
 import { fromSdkSignal } from './signal-bridge';
+import { createWriteEnabledSignal } from './write-enabled';
+import { adaptWriteGrant } from './write-grant';
 
 /**
  * The Angular entry point to Langsys.
@@ -54,7 +56,34 @@ export class LangsysService {
     readonly ready = this._ready.asReadonly();
     /** Init error message, if initialization failed. */
     readonly error = this._error.asReadonly();
-    /** Permission level of the configured API key, known after a successful init. */
+
+    /**
+     * Whether this session may register phrases — **the only authoritative
+     * capability signal**. Tri-state, and all three states are distinct:
+     *
+     *   - `undefined` — not yet authorized. Hold: neither register nor report.
+     *   - `true` — this session registers missing phrases.
+     *   - `false` — read-only; misses go to the discovery-report lane instead.
+     *
+     * Server-computed, because the same key answers differently from different
+     * addresses and a write grant can flip it mid-session. Never derive it
+     * locally, and never treat `undefined` as `false` — see {@link keyType}.
+     *
+     * Held at `undefined` through the first render so hydration cannot mismatch;
+     * see `write-enabled.ts` for why that is `afterNextRender` and not a timer.
+     */
+    readonly writeEnabled: Signal<boolean | undefined>;
+
+    /**
+     * Permission level of the configured API key.
+     *
+     * **Not a capability signal — do not branch on it.** It reports what the key
+     * *is*, never what this session may *do*: the same write key is read-only
+     * from an unrecognised address, and a read key becomes write-enabled when a
+     * valid write grant is supplied. The two disagree in exactly the cases that
+     * matter. Use {@link writeEnabled} for every write decision; this is
+     * diagnostic only.
+     */
     readonly keyType = computed(() => (this._ready() ? LangsysAppAPI.config?.key_type : undefined));
 
     // ---- Observable interop --------------------------------------------------
@@ -74,6 +103,11 @@ export class LangsysService {
         this.t = fromSdkSignal<TFunction>(tSignal, { autoDestroy: false });
         this.currentLocale = fromSdkSignal<string>(currentlyLoadedLocale, { autoDestroy: false });
         this.translations = fromSdkSignal<iCategories>(sTranslations, { autoDestroy: false });
+
+        // Deliberately NOT `fromSdkSignal`: that bridge subscribes eagerly, which
+        // is precisely what the hydration guard must not do. Same mechanism
+        // (subscribe → set), deferred to after the first render.
+        this.writeEnabled = createWriteEnabledSignal();
 
         this.store = this.config.UserLocaleStore
             ? null
@@ -114,6 +148,13 @@ export class LangsysService {
                     projectid,
                     key,
                     UserLocaleStore: source,
+                    // A signal becomes a per-call provider; a string or function
+                    // passes through. Configuring a provider that returns `null`
+                    // until login beats leaving this unset and calling
+                    // `setWriteGrant()` later — an unset grant tells the SDK no
+                    // grant can ever arrive, so it releases held misses to a
+                    // renderer that cannot log in.
+                    writeGrant: adaptWriteGrant(this.config.writeGrant),
                     baseLocale: this.config.baseLocale,
                     debug: this.config.debug,
                     ssrTokenStrategy: this.config.ssrTokenStrategy,
@@ -151,61 +192,5 @@ export class LangsysService {
             return;
         }
         this.config.UserLocaleStore?.set(next);
-    }
-
-    /** Resolves when the in-flight translation fetch settles. */
-    get translationsLoadingPromise(): Promise<unknown> {
-        return LangsysApp.translationsLoadingPromise;
-    }
-
-    /** Re-fetch the catalog for the current locale. */
-    refresh(): Promise<boolean> {
-        return LangsysApp.refresh();
-    }
-
-    // ---- Delegated reference-data / locale helpers ---------------------------
-
-    getCountries(inLocale?: string) {
-        return LangsysApp.getCountries(inLocale);
-    }
-    getCountryName(forCountryCode: string, inLocale?: string) {
-        return LangsysApp.getCountryName(forCountryCode, inLocale);
-    }
-    getCurrencies(inLocale?: string) {
-        return LangsysApp.getCurrencies(inLocale);
-    }
-    getCurrencyName(forCurrencyCode: string, inLocale?: string) {
-        return LangsysApp.getCurrencyName(forCurrencyCode, inLocale);
-    }
-    getDialCodes(inLocale?: string) {
-        return LangsysApp.getDialCodes(inLocale);
-    }
-
-    getLocales(inLocale?: string) {
-        return LangsysApp.getLocales(inLocale);
-    }
-    getLocalesFlat(inLocale?: string) {
-        return LangsysApp.getLocalesFlat(inLocale);
-    }
-    getLocalesData(inLocale?: string, forceRefresh?: boolean) {
-        return LangsysApp.getLocalesData(inLocale, forceRefresh);
-    }
-    getLocalesFormat(format: '' | 'flat' | 'data' = '', inLocale?: string) {
-        return LangsysApp.getLocalesFormat(format, inLocale);
-    }
-    /** Synchronous — requires the locale dataset to be loaded first (see `getLocalesData`). */
-    getLocaleName(forLocale: string, shortName?: boolean, inLocale?: string) {
-        return LangsysApp.getLocaleName(forLocale, shortName, inLocale);
-    }
-    getLocaleNameWithLookup(forLocale: string, shortName?: boolean, inLocale?: string) {
-        return LangsysApp.getLocaleNameWithLookup(forLocale, shortName, inLocale);
-    }
-    /** @deprecated use `getLocaleNameWithLookup` or `getLocaleName` */
-    getLanguageName(forLocale: string, shortName?: boolean, inLocale?: string) {
-        return LangsysApp.getLanguageName(forLocale, shortName, inLocale);
-    }
-
-    detectPreferredLocale(acceptLanguageHeader?: string | null, supportedLocales?: string[]) {
-        return LangsysApp.detectPreferredLocale(acceptLanguageHeader, supportedLocales);
     }
 }

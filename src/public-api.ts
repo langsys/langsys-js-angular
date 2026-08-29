@@ -28,6 +28,8 @@ export { DontTranslateDirective } from './lib/directives/dont-translate.directiv
 // Adapters
 export { createLocaleStore, signalToLocaleSource, type LocaleStore } from './lib/locale-store';
 export { fromSdkSignal } from './lib/signal-bridge';
+export { adaptWriteGrant, type WriteGrantSource } from './lib/write-grant';
+export { createWriteEnabledSignal } from './lib/write-enabled';
 
 /**
  * Convenience bundle: import every Langsys template feature at once in a
@@ -42,15 +44,37 @@ import { DontTranslateDirective } from './lib/directives/dont-translate.directiv
 
 export const LANGSYS_IMPORTS = [TranslatePipe, TranslateDirective, PhraseDirective, DontTranslateDirective] as const;
 
-// Raw reactive primitives + helpers from the base SDK (advanced / direct use).
+/**
+ * Re-exported **by reference** from the base SDK — not wrapped.
+ *
+ * BIND-6: a binding's job is to adapt what the framework needs adapted and to
+ * get out of the way for everything else. `LangsysApp` carries the reference-data
+ * helpers (`getCountries`, `getLocalesData`, `detectPreferredLocale`, …) and
+ * `refresh()`; none of them are reactive or lifecycle-bound, so wrapping them on
+ * the service bought nothing and cost the ability to rule this binding out of an
+ * investigation in one sentence.
+ *
+ * `setWriteGrant` is re-exported rather than wrapped for a sharper reason: it
+ * must **re-authorize**, not merely store configuration (GRANT-3), and that
+ * re-authorization is the core's. A wrapper here could only get it wrong.
+ */
 export {
+    LangsysApp,
     LangsysAppAPI,
+    PHRASE_MARKER_ATTR,
     canonicalizeLocale,
     createSignal,
     currentlyLoadedLocale,
     sTranslations,
+    setWriteGrant,
     tSignal as t,
 } from 'langsys-js-typescript';
+
+// NOT re-exported: the core's raw `writeEnabled`. It is the one value where a
+// by-reference re-export would be a defect — reading it during the hydration
+// pass is exactly the mismatch `LangsysService.writeEnabled` exists to prevent,
+// and exporting it beside the guarded signal would hand callers the foot-gun
+// while implying the two are interchangeable. Reach it through the service.
 
 // Framework-agnostic type re-exports, so consumers never reach into the base SDK.
 export type {
@@ -61,6 +85,7 @@ export type {
     TArgs,
     TFunction,
     TranslationParams,
+    WriteGrant,
     iCategories,
     iContentBlock,
     iCountry,

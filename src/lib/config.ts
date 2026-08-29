@@ -1,5 +1,6 @@
 import { InjectionToken } from '@angular/core';
 import type { Signal as SdkSignal, iCategories } from 'langsys-js-typescript';
+import type { WriteGrantSource } from './write-grant';
 
 /**
  * Angular-flavored init config.
@@ -29,6 +30,22 @@ export interface LangsysConfig {
     initialTranslations?: iCategories;
     /** Locale that `initialTranslations` corresponds to. */
     initialTranslationsLocale?: string;
+    /**
+     * Short-lived write grant for login-walled apps, sent as `X-Write-Grant`.
+     *
+     * Accepts everything the base SDK does (a string or a provider function),
+     * plus an Angular **signal** — so refreshing is `grantSignal.set(next)`.
+     * Prefer a signal or a function: grants live ~5 minutes while an app inits
+     * once and runs for hours, so a bare string is expired minutes in and every
+     * later write silently degrades to read-only.
+     *
+     * If the token only exists after login, still configure a source that
+     * returns `null` until then rather than leaving this unset — unset tells the
+     * SDK no grant can ever arrive, so it releases held misses to the report
+     * lane, which for a login-walled app means reporting to a renderer that
+     * cannot log in.
+     */
+    writeGrant?: WriteGrantSource;
 
     /** Override the API host, e.g. `http://localhost:8000/api`. */
     apiUrl?: string;

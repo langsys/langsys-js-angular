@@ -8,10 +8,11 @@ import { Directive, HostBinding } from '@angular/core';
  * <code lsDontTranslate>%PATH%</code>
  * ```
  *
- * Purely presentational: it sets `translate="no"` (honoured by the SDK's
- * tokenizer *and* by browser translation features) plus a marker attribute, so
- * the content is never harvested, registered, or replaced. It also protects a
- * literal `%WORD%` from being mistaken for an interpolation placeholder.
+ * Purely presentational: it sets `translate="no"`, which is what the core's
+ * `isTranslationExcluded()` actually honours (alongside `data-notrans`) and what
+ * browser translation features respect, so the content is never harvested,
+ * registered, or replaced. It also protects a literal `%WORD%` from being
+ * mistaken for an interpolation placeholder.
  */
 @Directive({
     selector: '[lsDontTranslate]',
@@ -19,5 +20,4 @@ import { Directive, HostBinding } from '@angular/core';
 })
 export class DontTranslateDirective {
     @HostBinding('attr.translate') readonly translate = 'no';
-    @HostBinding('attr.data-ls-dont-translate') readonly marker = '';
 }

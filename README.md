@@ -30,6 +30,7 @@ bootstrapApplication(AppComponent, {
             baseLocale: 'en-US',
             initialLocale: 'en-US',
             // apiUrl: 'https://my-langsys.example.com/api',  // self-hosted backend
+            // writeGrant: grantSignal,                       // login-walled apps — see Write capability
         }),
     ],
 });
@@ -82,10 +83,59 @@ loaded locale; pass a string to opt out.
 | `locale`                                | `Signal<string>`                             | The user-selected locale                                           |
 | `translations`                          | `Signal<iCategories>`                        | Raw catalog                                                        |
 | `ready` / `error`                       | `Signal<boolean>` / `Signal<string \| null>` | Init state                                                         |
-| `keyType`                               | `Signal<'read' \| 'write' \| undefined>`     | Detected key permission                                            |
+| `writeEnabled`                          | `Signal<boolean \| undefined>`               | **Whether this session may register.** See below                   |
+| `keyType`                               | `Signal<'read' \| 'write' \| undefined>`     | Diagnostic only — **do not branch on it**                          |
 | `t$`, `currentLocale$`, `translations$` | `Observable<…>`                              | RxJS mirrors                                                       |
 
 Switch locale with `langsys.setLocale('es-ES')`.
+
+## Write capability
+
+`writeEnabled` is the **only** authoritative answer to "may this session register phrases?", and
+it is **tri-state**:
+
+| Value       | Meaning                                                    |
+| ----------- | ---------------------------------------------------------- |
+| `undefined` | Not yet authorized — hold. Neither register nor report.    |
+| `true`      | Register missing phrases.                                  |
+| `false`     | Read-only; misses go to the discovery-report lane instead. |
+
+```html
+@if (langsys.writeEnabled() === undefined) { <span>Checking…</span> } @else if (langsys.writeEnabled()) {
+<button>Edit translations</button>
+}
+```
+
+> **Do not branch on `keyType`, and do not treat `undefined` as `false`.** `keyType` reports what
+> the key _is_; `writeEnabled` reports what this session may _do_, and the two disagree in exactly
+> the cases that matter — the same write key is read-only from an unrecognised address, and a read
+> key becomes write-enabled once a valid write grant is supplied. Capability is computed by the
+> server, never derived on the client.
+
+`writeEnabled` stays `undefined` through the first render so a server-rendered page and its
+hydrated markup agree; it adopts the real value on the next change-detection pass.
+
+### Write grants
+
+Login-walled apps our discovery renderer cannot reach lend write capability to a session with a
+short-lived grant (sent as `X-Write-Grant`). Pass a **signal** and refresh it by setting it:
+
+```ts
+const grant = signal<string | null>(null); // null until login
+
+provideLangsys({ projectid: '…', key: '…', writeGrant: grant });
+
+// later, once your auth layer mints one:
+grant.set(token);
+```
+
+A string is accepted but rarely right: grants live ~5 minutes while an app inits once and runs for
+hours, so a static string is expired minutes in and every later write silently degrades to
+read-only. A signal (or a provider function) is resolved fresh before each request.
+
+Prefer configuring a source that returns `null` until login over leaving `writeGrant` unset —
+unset tells the SDK no grant can ever arrive, so it releases held misses to the report lane.
+To supply one after `init()`, `setWriteGrant()` is re-exported from the base SDK.
 
 ## Directives
 
@@ -136,7 +186,13 @@ costs a few reference comparisons.
 
 ## Utility helpers
 
-All delegated to the base SDK, on `LangsysService`:
+These are **re-exported from the base SDK by reference**, not wrapped — call them on `LangsysApp`:
+
+```ts
+import { LangsysApp } from 'langsys-js-angular';
+
+await LangsysApp.getCountries('es-ES');
+```
 
 ```ts
 getCountries(inLocale?)      getCountryName(code, inLocale?)
@@ -148,6 +204,10 @@ getLocaleNameWithLookup(locale, short?, inLocale?)       // async, fetches the d
 detectPreferredLocale(acceptLanguageHeader?, supportedLocales?)
 refresh()                    translationsLoadingPromise
 ```
+
+> They take no adapting — they are plain async data calls, not reactive — so this binding does not
+> wrap them. Wrapping surface it does not adapt is what stops a binding from being ruled out of an
+> investigation in one sentence.
 
 > `getLocaleName` is synchronous and reads a cache that only the async helpers populate. Call
 > `await getLocalesData(inLocale)` first, or use `getLocaleNameWithLookup`, otherwise it returns `''`.
