@@ -69,11 +69,23 @@ vi.mock('langsys-js-typescript', () => {
         tSignal: t,
         currentlyLoadedLocale,
         sTranslations,
-        canonicalizeLocale: (l: string) =>
-            l.replace(
-                /^([a-z]{2})-([a-z]{2})$/i,
-                (_m, a: string, b: string) => `${a.toLowerCase()}-${b.toUpperCase()}`
-            ),
+        // Mirrors the core's `src/locale.ts` line for line rather than
+        // approximating it. The previous double UPPERCASED the region
+        // (`en-US`) while the real implementation lowercases the whole tag
+        // (`en-us`) — WIRE-3 requires lowercase `xx-yy` both on the wire and
+        // internally, so the double certified the exact behaviour the rule
+        // forbids. A double that contradicts production is not a weaker test,
+        // it is a test that can pass while the code is wrong.
+        canonicalizeLocale: (locale: string) => {
+            if (!locale || typeof locale !== 'string') return locale;
+            const cleaned = locale.trim().replace(/_/g, '-');
+            try {
+                const [canonical] = Intl.getCanonicalLocales(cleaned);
+                return (canonical ?? cleaned).toLowerCase();
+            } catch {
+                return cleaned.toLowerCase();
+            }
+        },
     };
 });
 
@@ -198,9 +210,12 @@ describe('LangsysService', () => {
             expect(svc.error()).toBe('network down');
         });
 
-        it('seeds the locale store from initialLocale', () => {
+        it('seeds the locale store from initialLocale, canonicalized to lowercase', () => {
             const svc = make({ initialLocale: 'es-ES' });
-            expect(svc.locale()).toBe('es-ES');
+
+            // WIRE-3: lowercase `xx-yy` internally as well as on the wire, so a
+            // host-cased tag from app config cannot fork cache keys or lookups.
+            expect(svc.locale()).toBe('es-es');
         });
 
         it('uses a caller-supplied UserLocaleStore when given', async () => {
@@ -217,17 +232,28 @@ describe('LangsysService', () => {
     });
 
     describe('setLocale', () => {
-        it('canonicalizes and updates the store', () => {
+        it('canonicalizes to lowercase, whatever casing the caller used', () => {
             const svc = make();
+
+            svc.setLocale('es-ES');
+            expect(svc.locale()).toBe('es-es');
+
+            // Same tag, three spellings, one internal identity — the property
+            // WIRE-3 is actually about.
+            svc.setLocale('ES-es');
+            expect(svc.locale()).toBe('es-es');
+
             svc.setLocale('es-es');
-            expect(svc.locale()).toBe('es-ES');
+            expect(svc.locale()).toBe('es-es');
         });
 
-        it('writes through to a caller-supplied source', () => {
-            const custom = fakeSignal('en-US');
+        it('writes through to a caller-supplied source, canonicalized', () => {
+            const custom = fakeSignal('en-us');
             const svc = make({ UserLocaleStore: custom });
-            svc.setLocale('de-de');
-            expect(custom.get()).toBe('de-DE');
+
+            svc.setLocale('de-DE');
+
+            expect(custom.get()).toBe('de-de');
         });
     });
 
