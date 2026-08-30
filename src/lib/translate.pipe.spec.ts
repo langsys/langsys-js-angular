@@ -50,6 +50,44 @@ describe('TranslatePipe', () => {
         expect(fn).toHaveBeenLastCalledWith('Save', 'UI');
     });
 
+    describe('per-URL discovery re-entry', () => {
+        /**
+         * The core records a discovery miss BEFORE its registration dedup
+         * (`translations.ts:274-277`), because the hint lane keys on the URL the
+         * miss occurred on — "a phrase already queued from an earlier route must
+         * not suppress the record for the page being viewed now".
+         *
+         * `TFunction` identity does NOT change on a client-side route change, so
+         * a memo keyed only on it suppresses `t()` for every tuple already
+         * rendered elsewhere in the session. A page of shared chrome, nav and
+         * error copy would then produce NO hint at all — absent, not degraded,
+         * and permanent for that session.
+         */
+        it('re-enters t() after a route change, so discovery is not suppressed', () => {
+            const fn = vi.fn((p: string) => `T:${p}`);
+            const { pipe } = setup(fn as never);
+
+            pipe.transform('Save', 'UI');
+            expect(fn).toHaveBeenCalledTimes(1);
+
+            history.pushState({}, '', '/a-different-route');
+
+            pipe.transform('Save', 'UI');
+            expect(fn).toHaveBeenCalledTimes(2);
+        });
+
+        it('still memoizes within one URL — it must remain a memo', () => {
+            const fn = vi.fn((p: string) => `T:${p}`);
+            const { pipe } = setup(fn as never);
+
+            pipe.transform('Save', 'UI');
+            pipe.transform('Save', 'UI');
+            pipe.transform('Save', 'UI');
+
+            expect(fn).toHaveBeenCalledTimes(1);
+        });
+    });
+
     it('re-translates when the TFunction identity changes (locale switch)', () => {
         const { pipe, t } = setup((p) => `EN:${p}`);
         expect(pipe.transform('Save', 'UI')).toBe('EN:Save');
