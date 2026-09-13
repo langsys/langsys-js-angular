@@ -1,0 +1,20 @@
+{
+    "name": "langsys-js-angular-ssr-measure",
+    "private": true,
+    "type": "module",
+    "description": "Reproducible SRV measurements for CONFORMANCE.md: real @angular/platform-server renders of the built binding, one case per fresh process.",
+    "scripts": {
+        "measure": "node measure.mjs"
+    },
+    "dependencies": {
+        "@angular/animations": "17.3.12",
+        "@angular/common": "17.3.12",
+        "@angular/compiler": "17.3.12",
+        "@angular/core": "17.3.12",
+        "@angular/platform-browser": "17.3.12",
+        "@angular/platform-server": "17.3.12",
+        "rxjs": "7.8.1",
+        "tslib": "2.6.2",
+        "zone.js": "0.14.4"
+    }
+}

@@ -24,7 +24,13 @@ export interface LangsysConfig {
     baseLocale?: string;
     /** Enable verbose SDK console logging. @default false */
     debug?: boolean;
-    /** Token creation behavior during SSR. @default 'client' */
+    /**
+     * Token creation behavior during SSR. @default 'client'
+     *
+     * **Precondition for `'server'`:** the origin server's IP address must be allow-listed for the
+     * project. Without it the server lane fails silently and totally — no error, no request, nothing
+     * in the catalog, no report.
+     */
     ssrTokenStrategy?: 'client' | 'server' | 'auto';
     /** Pre-fetched catalog to seed (SSR), bypassing the initial fetch. */
     initialTranslations?: iCategories;

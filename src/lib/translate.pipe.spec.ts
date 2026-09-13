@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { TFunction } from 'langsys-js-typescript';
 import { LangsysService } from './langsys.service';
@@ -143,5 +143,53 @@ describe('TranslatePipe', () => {
         pipe.transform('Hi {name}', 'UI', { name: 'Ada' });
         pipe.transform('Hi {name}', 'UI', { name: 'Ada' }); // new object, same content
         expect(fn).toHaveBeenCalledTimes(1);
+    });
+});
+
+/**
+ * Through a rendered template, in a persistent layout: the component stays mounted
+ * and only the URL changes. HINT-4 (8.0.1) records that the hint lane's per-URL
+ * dedup assumes a URL change re-enters `t()`, and names this shape as the one that
+ * may not. These tests measure it for each way this binding lets a template
+ * translate, rather than inferring it.
+ *
+ * Navigation is modelled as `history.pushState` followed by a change-detection pass,
+ * which is what a router navigation triggers.
+ */
+describe('re-entry on navigation, through a rendered template', () => {
+    function mount(host: unknown) {
+        const fn = vi.fn((p: string) => `T:${p}`);
+        TestBed.resetTestingModule();
+        TestBed.configureTestingModule({
+            providers: [{ provide: LangsysService, useValue: { t: signal(fn as unknown as TFunction) } }],
+        });
+        history.pushState({}, '', '/route-a');
+        const fixture = TestBed.createComponent(host as never);
+        fixture.detectChanges();
+        return { fn, fixture };
+    }
+
+    @Component({ standalone: true, imports: [TranslatePipe], template: `<span>{{ 'Save' | t: 'UI' }}</span>` })
+    class PipeHost {}
+
+    it('the pipe re-enters t() after navigation, and renders the result', () => {
+        const { fn, fixture } = mount(PipeHost);
+        const rendered = fn.mock.calls.length;
+
+        history.pushState({}, '', '/route-b');
+        fixture.detectChanges();
+
+        expect(fn.mock.calls.length).toBe(rendered + 1);
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('T:Save');
+    });
+
+    it('the pipe stays memoized across change detection on the same URL', () => {
+        const { fn, fixture } = mount(PipeHost);
+        const rendered = fn.mock.calls.length;
+
+        fixture.detectChanges();
+        fixture.detectChanges();
+
+        expect(fn.mock.calls.length).toBe(rendered);
     });
 });

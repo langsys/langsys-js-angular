@@ -232,7 +232,19 @@ Pass a server-prefetched catalog to skip the client's initial fetch:
 provideLangsys({ …, initialTranslations, initialTranslationsLocale, ssrTokenStrategy: 'client' });
 ```
 
-The DOM directives no-op on the server (they need a real DOM) and initialize on hydration.
+The DOM directives no-op on the server (they need a real DOM) and initialize on hydration, so
+`lsTranslate` and `lsPhrase` content is served in the base language, without its identity stamp,
+and translated after hydration.
+
+> **Precondition — `ssrTokenStrategy: 'server'` requires the origin server's IP address to be
+> allow-listed for the project.** Without it the server lane fails silently and totally: no error,
+> no request, nothing in the catalog, no report.
+
+> **Known limitation — concurrent server renders share one catalog.** The catalog lives in the base
+> SDK's module globals, which are process-wide, so two requests rendering different locales at the
+> same time can serve each other's translations. Measured: an `it-it` render concurrent with a
+> `de-de` one was served German. Until request-scoped serving lands, `initialTranslations` gives
+> correct per-locale bytes only when renders do not overlap. Reproduce with `_dev_/ssr-measure`.
 
 ## License
 

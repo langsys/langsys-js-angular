@@ -11,3 +11,6 @@ yarn.lock
 
 # Generated
 CHANGELOG.md
+
+# Machine-checked conformance table: prettier would re-pad all 79 long rows on every one-cell edit
+CONFORMANCE.md

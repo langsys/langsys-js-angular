@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { signal as ngSignal } from '@angular/core';
+import { Component, inject, signal as ngSignal } from '@angular/core';
 
 /** Build a fake base-SDK Signal. */
 function fakeSignal<T>(initial: T) {
@@ -308,5 +308,40 @@ describe('LangsysService', () => {
                 .calls[0][0];
             expect(arg['writeGrant']).toBeUndefined();
         });
+    });
+});
+
+/**
+ * `translate()` read in a default-change-detection template, through the real
+ * service. It carries no memo, so it re-enters `t()` on every pass — navigation
+ * included. Recorded because HINT-4 (8.0.1) asks each binding path to be measured
+ * for re-entry in a persistent layout rather than inferred.
+ */
+describe('translate() through a rendered template, on navigation', () => {
+    @Component({ standalone: true, template: `<span>{{ langsys.translate('Save', 'UI') }}</span>` })
+    class TranslateExprHost {
+        readonly langsys = inject(LangsysService);
+    }
+
+    it('re-enters t() after navigation and renders the result', () => {
+        make();
+        const sdkT = tSignal as unknown as { get(): unknown; set(v: unknown): void };
+        const original = sdkT.get();
+        const spy = vi.fn((p: string) => `EN:${p}`);
+        sdkT.set(spy);
+        try {
+            history.pushState({}, '', '/route-a');
+            const fixture = TestBed.createComponent(TranslateExprHost);
+            fixture.detectChanges();
+            const rendered = spy.mock.calls.length;
+
+            history.pushState({}, '', '/route-b');
+            fixture.detectChanges();
+
+            expect(spy.mock.calls.length).toBeGreaterThan(rendered);
+            expect((fixture.nativeElement as HTMLElement).textContent).toContain('EN:Save');
+        } finally {
+            sdkT.set(original);
+        }
     });
 });
