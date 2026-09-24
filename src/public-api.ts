@@ -21,6 +21,7 @@ export { LangsysService } from './lib/langsys.service';
 
 // Template API
 export { TranslatePipe } from './lib/translate.pipe';
+export { MessagePipe } from './lib/message.pipe';
 export { TranslateDirective } from './lib/directives/translate.directive';
 export { PhraseDirective } from './lib/directives/phrase.directive';
 export { DontTranslateDirective } from './lib/directives/dont-translate.directive';
@@ -38,11 +39,18 @@ export { createWriteEnabledSignal } from './lib/write-enabled';
  *   imports: [LANGSYS_IMPORTS]
  */
 import { TranslatePipe } from './lib/translate.pipe';
+import { MessagePipe } from './lib/message.pipe';
 import { TranslateDirective } from './lib/directives/translate.directive';
 import { PhraseDirective } from './lib/directives/phrase.directive';
 import { DontTranslateDirective } from './lib/directives/dont-translate.directive';
 
-export const LANGSYS_IMPORTS = [TranslatePipe, TranslateDirective, PhraseDirective, DontTranslateDirective] as const;
+export const LANGSYS_IMPORTS = [
+    TranslatePipe,
+    MessagePipe,
+    TranslateDirective,
+    PhraseDirective,
+    DontTranslateDirective,
+] as const;
 
 /**
  * Re-exported **by reference** from the base SDK — not wrapped.
@@ -65,6 +73,8 @@ export {
     canonicalizeLocale,
     createSignal,
     currentlyLoadedLocale,
+    renderServerMessage,
+    resolveServerMessages,
     sTranslations,
     setWriteGrant,
     tSignal as t,
@@ -81,6 +91,8 @@ export type {
     ExtractParamKeys,
     ParamPrimitive,
     ParamsFor,
+    ResolveServerMessagesOptions,
+    ServerMessage,
     Signal as SdkSignal,
     TArgs,
     TFunction,

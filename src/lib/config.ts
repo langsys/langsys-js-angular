@@ -52,6 +52,12 @@ export interface LangsysConfig {
      * cannot log in.
      */
     writeGrant?: WriteGrantSource;
+    /**
+     * The category server messages are registered and rendered under (spec MSG-6). It must be the
+     * category the server registers its templates under, or every lookup misses and shows the
+     * entry's `message`. Passed to the base SDK unchanged. @default 'Errors'
+     */
+    messagesCategory?: string;
 
     /** Override the API host, e.g. `http://localhost:8000/api`. */
     apiUrl?: string;

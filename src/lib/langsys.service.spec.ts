@@ -300,6 +300,15 @@ describe('LangsysService', () => {
             expect(provider()).toBe('tok_2');
         });
 
+        it('passes messagesCategory to init unchanged (MSG-6)', async () => {
+            const svc = make({ messagesCategory: 'Validation' });
+            await svc.init();
+
+            const arg = (LangsysApp.init as unknown as { mock: { calls: Record<string, unknown>[][] } }).mock
+                .calls[0][0];
+            expect(arg['messagesCategory']).toBe('Validation');
+        });
+
         it('leaves writeGrant undefined when none is configured', async () => {
             const svc = make();
             await svc.init();

@@ -6,21 +6,21 @@ import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import type { TFunction } from 'langsys-js-typescript';
 
 /**
- * HINT-4 (spec 8.0.1) — the hint lane's per-URL cap assumes a URL change re-enters `t()`. Its note:
- * a translated component in a **persistent layout** stays mounted while only the route changes, and
- * if nothing calls back into the SDK, no URL is captured for the new route — "a known non-capture,
- * not conformance", recorded as such until the navigation entry point lands.
+ * HINT-4 / HINT-13 — which persistent-layout shapes re-enter `t()` for the new URL on their own,
+ * measured with a real `Router` and a shell that persists outside `<router-outlet>`.
  *
- * Measured here with a real `Router` and a shell that persists outside `<router-outlet>`, for every
- * way this binding lets a layout translate. Two harness controls run on every case, because a
- * negative result without them proves nothing:
+ * Without `provideLangsysNavigation()`, a default change-detection shell and an OnPush shell that
+ * contains the outlet re-enter; an OnPush header beside the outlet, a `computed` translation and
+ * an `lsTranslate` block do not. With it, all of them are reported for the new page — proven
+ * against the contract double in `hint13/*.contract.spec.ts`.
+ *
+ * Two harness controls run on every case, because a negative result without them proves nothing:
  *  - the URL really moved — TestBed substitutes `MockPlatformLocation` by default, under which
  *    `location.href` never changes and every shape would falsely read as "does not re-enter";
  *  - a component INSIDE the outlet re-entered `t()` for the new URL.
  *
  * Navigations run inside the Angular zone, as a `routerLink` click or application code does, so the
- * app ticks afterwards. Called from outside the zone, nothing re-renders at all — a harness artefact
- * that would also read as "does not re-enter".
+ * app ticks afterwards. Called from outside the zone, nothing re-renders at all.
  */
 
 const spies = vi.hoisted(() => ({ translateCtor: vi.fn(), translateSetParams: vi.fn() }));
@@ -177,7 +177,10 @@ const SHAPES = [
     { name: 'the | t pipe in an OnPush header beside the outlet', shell: ShellWithOnPushHeader, reenters: false },
     { name: 'computed(() => t()(…)) in a shell', shell: ShellComputed, reenters: false },
     { name: 'an lsTranslate block in a shell', shell: ShellBlock, reenters: false },
-].map((s) => ({ ...s, outcome: s.reenters ? 're-enters for the new URL' : 'KNOWN NON-CAPTURE' }));
+].map((s) => ({
+    ...s,
+    outcome: s.reenters ? 're-enters for the new URL' : 'does not re-enter without provideLangsysNavigation()',
+}));
 
 describe('HINT-4 — a persistent layout across a real router navigation', () => {
     beforeEach(() => vi.clearAllMocks());

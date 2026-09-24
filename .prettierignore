@@ -14,3 +14,9 @@ CHANGELOG.md
 
 # Machine-checked conformance table: prettier would re-pad all 79 long rows on every one-cell edit
 CONFORMANCE.md
+
+# Vendored byte-exact from langsys-js-typescript (tree 542f57f5); never reformat
+contract-fixture/
+
+# Vendored byte-exact from langsys-js-typescript (blob c8125549); never reformat
+test/fixtures/server-message-vectors.json

@@ -3,8 +3,9 @@ import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-    // `*.cjs` config files are CommonJS; not worth wiring Node globals for.
-    { ignores: ['dist', 'node_modules', 'coverage', 'out-tsc', '**/*.cjs'] },
+    // `*.cjs` config files are CommonJS; not worth wiring Node globals for. `contract-fixture/`
+    // is vendored byte-exact from langsys-js-typescript and is linted there, not here.
+    { ignores: ['dist', 'node_modules', 'coverage', 'out-tsc', '**/*.cjs', 'contract-fixture'] },
     js.configs.recommended,
     ...tseslint.configs.recommended,
     {

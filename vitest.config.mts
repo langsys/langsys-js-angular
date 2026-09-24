@@ -13,6 +13,9 @@ import { defineConfig } from 'vite';
  * The config is `.mts` so Node loads it as ESM (this package is CJS by default).
  */
 export default defineConfig({
+    // Keep the linked core's module id under node_modules, so Vite loads it for the contract
+    // tests; the specs that mock it are unaffected.
+    resolve: { preserveSymlinks: true },
     esbuild: {
         // esbuild does not pick these up from tsconfig here, so state them.
         tsconfigRaw: {

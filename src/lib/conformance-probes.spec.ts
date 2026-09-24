@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -42,11 +42,13 @@ function bindingSource(): { file: string; lines: string[] }[] {
             const p = join(dir, name);
             if (statSync(p).isDirectory()) walk(p);
             else if (p.endsWith('.ts') && !p.endsWith('.spec.ts') && !p.endsWith('test-setup.ts')) {
-                out.push({ file: p.slice(SRC.length + 1), lines: codeLines(readFileSync(p, 'utf8')) });
+                out.push({ file: relative(join(SRC, '..'), p), lines: codeLines(readFileSync(p, 'utf8')) });
             }
         }
     };
     walk(SRC);
+    // The secondary entry point (`langsys-js-angular/router`) is binding code too.
+    walk(join(SRC, '..', 'router'));
     return out;
 }
 
@@ -81,9 +83,9 @@ const DELEGATION_PROBES: Probe[] = [
             /missingToken|scheduleTokenFlush|shouldQueueForWrite|sendBeacon|keepalive|batch_limit|recordMissForDiscovery|registerContentBlock/,
     },
     {
-        rows: 'GATE-1, GATE-8, HINT-9, BIND-2',
-        what: 'reading or branching on server-computed capability',
-        pattern: /write_enabled|auto_discovery|key_type\s*[!=]==/,
+        rows: 'GATE-1, GATE-8, GATE-9, HINT-9, BIND-2',
+        what: 'reading or branching on server-computed capability and policy',
+        pattern: /write_enabled|auto_discovery|discovery_base_locale_only|key_type\s*[!=]==/,
     },
     {
         rows: 'GATE-3, GATE-4',
@@ -129,6 +131,16 @@ const DELEGATION_PROBES: Probe[] = [
         rows: 'WIRE-4',
         what: 'throwing from a translation, lookup or init path',
         pattern: /\bthrow\b/,
+    },
+    {
+        rows: 'MSG-1, MSG-2',
+        what: 'finding entries in a body, or choosing text from an entry',
+        pattern: /\.template\b|\.code\b|templateMarkers|SERVER_MESSAGE_CODES/,
+    },
+    {
+        rows: 'MIG-1..8, SNAP-3',
+        what: 'resolving a phrase against the catalog itself',
+        pattern: /sTranslations\.get\(|\blookup\(/,
     },
     {
         rows: 'SSR-2',

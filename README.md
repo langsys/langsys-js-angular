@@ -137,6 +137,47 @@ Prefer configuring a source that returns `null` until login over leaving `writeG
 unset tells the SDK no grant can ever arrive, so it releases held misses to the report lane.
 To supply one after `init()`, `setWriteGrant()` is re-exported from the base SDK.
 
+## Route changes
+
+```ts
+import { provideRouter } from '@angular/router';
+import { provideLangsysNavigation } from 'langsys-js-angular/router';
+
+bootstrapApplication(AppComponent, {
+    providers: [provideRouter(routes), provideLangsys({ … }), provideLangsysNavigation()],
+});
+```
+
+Content that stays on screen across a navigation — a header beside `<router-outlet>`, an `OnPush`
+layout, a `computed` translation, an `lsTranslate` block in the shell — is not re-rendered when only
+the route changes. `provideLangsysNavigation()` tells the SDK after every completed navigation, so
+those phrases are looked up again at the new URL and a missing one is discovered for the page it now
+appears on. It lives in its own entry point, so applications without `@angular/router` never import it.
+
+## Server messages
+
+A Langsys-aware server sends validation errors and system messages as entries —
+`{ field?, code, message, template, params? }`. Find them in a response wherever they sit, and render
+them with the `tMessage` pipe:
+
+```ts
+import { resolveServerMessages } from 'langsys-js-angular';
+
+this.errors = resolveServerMessages(response.error); // optionally { key: 'data.errors' } or { resolver }
+```
+
+```html
+@for (entry of errors; track $index) {
+<p class="error">{{ entry | tMessage }}</p>
+}
+```
+
+The pipe shows the translated template when the catalog holds one, and the server's own `message`
+otherwise. `code` is for your logic — highlight or focus a field — never for choosing text. Templates
+are registered and looked up under one category, `Errors` unless `messagesCategory` in
+`provideLangsys()` says otherwise, and it must match the category the server uses. In code,
+`LangsysService.renderServerMessage(entry, category?)` does the same.
+
 ## Directives
 
 ```html
@@ -164,6 +205,12 @@ import { LANGSYS_IMPORTS } from 'langsys-js-angular';
 
 Text and translatable attributes (`placeholder`, `alt`, `title`, `aria-label`, …) are harvested
 automatically. In markup, author runtime placeholders as `%name%` (normalized to `{name}`).
+
+Text a server has already output in a translated locale can sit inside a subtree marked
+`data-ls-resolved` (or `data-langsys-resolved`). The directives record nothing inside it, because
+that text is not source; the nearest marked ancestor decides, and `data-ls-resolved="false"` on a
+component's root opts that component's own blocks back in. The marker governs DOM hosts only: a `t`
+pipe or `translate()` call inside the subtree is still an ordinary lookup and records its miss.
 
 > ⚠️ Keep the content inside `lsTranslate` / `lsPhrase` **static** — the underlying classes mutate that
 > DOM in place. Put anything dynamic in `[params]`.

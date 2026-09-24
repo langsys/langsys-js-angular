@@ -26,6 +26,6 @@
         "strictTemplates": true,
         "compilationMode": "partial"
     },
-    "include": ["src/**/*.ts"],
-    "exclude": ["src/**/*.spec.ts", "src/test-setup.ts"]
+    "include": ["src/**/*.ts", "router/**/*.ts"],
+    "exclude": ["src/**/*.spec.ts", "router/**/*.spec.ts", "src/test-setup.ts"]
 }

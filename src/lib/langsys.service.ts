@@ -5,12 +5,14 @@ import {
     LangsysApp,
     LangsysAppAPI,
     canonicalizeLocale,
+    renderServerMessage,
     currentlyLoadedLocale,
     sTranslations,
     tSignal,
     type TFunction,
     type iCategories,
     type iLangsysResponse,
+    type ServerMessage,
 } from 'langsys-js-typescript';
 import { LANGSYS_CONFIG } from './config';
 import { createLocaleStore, type LocaleStore } from './locale-store';
@@ -155,6 +157,7 @@ export class LangsysService {
                     // grant can ever arrive, so it releases held misses to a
                     // renderer that cannot log in.
                     writeGrant: adaptWriteGrant(this.config.writeGrant),
+                    messagesCategory: this.config.messagesCategory,
                     baseLocale: this.config.baseLocale,
                     debug: this.config.debug,
                     ssrTokenStrategy: this.config.ssrTokenStrategy,
@@ -183,6 +186,20 @@ export class LangsysService {
      */
     readonly translate: TFunction = ((...args: unknown[]) =>
         (this.t() as unknown as (...a: unknown[]) => string)(...args)) as unknown as TFunction;
+
+    /**
+     * Render a server message entry (spec MSG-5) — `{{ entry | tMessage }}` in a template.
+     *
+     * The base SDK decides everything: it renders the entry's `template` through `t()` under the
+     * messages category when the catalog holds a translation for it, and shows the entry's
+     * `message` otherwise; `message` is never a lookup key. Reading `t` here only makes the call
+     * reactive, so the text follows locale and catalog changes when read in a template or a
+     * `computed()`.
+     */
+    renderServerMessage(entry: ServerMessage, category?: string): string {
+        this.t();
+        return renderServerMessage(entry, category);
+    }
 
     /** Change the user locale. Throws if the app supplied its own locale source. */
     setLocale(locale: string): void {
