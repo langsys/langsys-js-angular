@@ -1,26 +1,34 @@
 #!/usr/bin/env python3
-"""Re-run the CONF-3 mutation evidence recorded in CONFORMANCE.md.
+"""Re-apply the CONF-3 mutation evidence recorded in CONFORMANCE.md.
 
-Each mutation is one exact edit to the source, applied, run against the specs that should catch it,
-and restored — the file is always rewritten from its original bytes, even on failure. A mutation whose
-anchor is missing is reported as NOT APPLIED rather than silently passing: an edit that changes nothing
-proves nothing.
+Every mutation runs in a throwaway git worktree that mirrors the current working tree, so the
+working tree itself is never edited. Each is one exact edit, applied, run against the specs that
+should catch it, and restored from the original bytes; one whose anchor is missing is reported NOT
+APPLIED rather than passing, since an edit that changes nothing proves nothing. An unparsed test run
+is retried once and the retry printed, never hidden.
 
     python3 _dev_/mutations.py
 """
 import json, os, re, shutil, subprocess, sys, tarfile, tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-os.chdir(ROOT)
+REPO = Path(__file__).resolve().parents[1]
+WORK = Path(tempfile.mkdtemp(prefix='langsys-angular-mutations-'))
+subprocess.run(['git', '-C', str(REPO), 'worktree', 'add', '--detach', str(WORK), 'HEAD'], check=True, capture_output=True)
+# Mirror the working tree — tracked edits and new files alike — then share node_modules.
+subprocess.run(['rsync', '-a', '--delete', '--exclude', '.git', '--exclude', 'node_modules', '--exclude', 'dist', f'{REPO}/', f'{WORK}/'], check=True)
+(WORK / 'node_modules').symlink_to(REPO / 'node_modules')
+os.chdir(WORK)
 
 ANSI = re.compile(r'\x1b\[[0-9;]*m')
+
 
 def _parse(out):
     m = re.search(r'Tests\s+(?:(\d+) failed \| )?(\d+) passed \((\d+)\)', out)
     if m: return f'{m.group(1) or 0} failed of {m.group(3)}'
     m = re.search(r'Tests\s+(\d+) failed \((\d+)\)', out)
     return f'{m.group(1)} failed of {m.group(2)}' if m else None
+
 
 def vitest(specs):
     """Run specs; return (result, notes). An unparsed run is retried once and RECORDED, never hidden."""
@@ -51,6 +59,10 @@ MUTATIONS = [
     ('BIND-6', 're-export the raw writeEnabled', 'src/public-api.ts', "    tSignal as t,\n} from 'langsys-js-typescript';", "    tSignal as t,\n    writeEnabled,\n} from 'langsys-js-typescript';", [S('conformance-probes')]),
     ('BIND-6', 'reintroduce a pass-through wrapper', SVC, 'APPEND_METHOD', "    getCountries(inLocale?: string) {\n        return LangsysApp.getCountries(inLocale);\n    }\n}\n", [S('conformance-probes')]),
     ('BIND-3', 'add a network call to the binding', WG, 'APPEND', "export const probeMutant = () => fetch('/api');\n", [S('conformance-probes')]),
+    ('HINT-13', 'drop the notifyNavigation() call on NavigationEnd', 'router/provide-langsys-navigation.ts', "if (event instanceof NavigationEnd) notifyNavigation();", "if (event instanceof NavigationEnd) void 0;", ['src/lib/hint13']),
+    ('GATE-10', 'hand the core a detached copy of the host', 'src/lib/directives/translate.directive.ts', "this.instance = new Translate(this.host.nativeElement as HTMLElement, {", "this.instance = new Translate((this.host.nativeElement as HTMLElement).cloneNode(true) as HTMLElement, {", [S('resolved-subtree.contract')]),
+    ('MSG-5', 'render entry.message without asking the core', SVC, "        return renderServerMessage(entry, category);", "        return void category, entry.message;", [S('server-message')]),
+    ('MSG-6', 'drop the messagesCategory pass-through', SVC, "                    messagesCategory: this.config.messagesCategory,\n", "", [S('langsys.service')]),
     ('SSR-3', 'delete the README precondition callout', 'README.md', 'REGEX', r"> \*\*Precondition[\s\S]*?no report\.\n\n", [S('conformance-probes')]),
 ]
 
@@ -88,4 +100,6 @@ if link.is_symlink():
         shutil.rmtree(link, ignore_errors=True); link.symlink_to(target); shutil.rmtree(tmp, ignore_errors=True)
 else:
     print('precondition   skipped: node_modules/langsys-js-typescript is not a symlink (run `npm link langsys-js-typescript`)')
-print('restored baseline:', vitest(['src/lib'])[0], '| working tree unchanged:', subprocess.run(['git', 'diff', '--quiet', '--', 'src', 'README.md']).returncode == 0 or 'see git diff')
+print('restored baseline:', vitest(['src/lib'])[0])
+subprocess.run(['git', '-C', str(REPO), 'worktree', 'remove', '--force', str(WORK)], capture_output=True)
+print('worktree removed; working tree untouched:', subprocess.run(['git', '-C', str(REPO), 'status', '--porcelain'], capture_output=True, text=True).stdout.count('\n'), 'changed paths, as before')
