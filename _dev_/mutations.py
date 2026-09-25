@@ -63,6 +63,7 @@ MUTATIONS = [
     ('GATE-10', 'hand the core a detached copy of the host', 'src/lib/directives/translate.directive.ts', "this.instance = new Translate(this.host.nativeElement as HTMLElement, {", "this.instance = new Translate((this.host.nativeElement as HTMLElement).cloneNode(true) as HTMLElement, {", [S('resolved-subtree.contract')]),
     ('MSG-5', 'render entry.message without asking the core', SVC, "        return renderServerMessage(entry, category);", "        return void category, entry.message;", [S('server-message')]),
     ('MSG-6', 'drop the messagesCategory pass-through', SVC, "                    messagesCategory: this.config.messagesCategory,\n", "", [S('langsys.service')]),
+    ('MIG', 'drop the legacyKeys pass-through', SVC, "                    legacyKeys: this.config.legacyKeys,\n", "", [S('langsys.service'), S('legacy-keys.contract')]),
     ('SSR-3', 'delete the README precondition callout', 'README.md', 'REGEX', r"> \*\*Precondition[\s\S]*?no report\.\n\n", [S('conformance-probes')]),
 ]
 

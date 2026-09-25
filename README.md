@@ -178,6 +178,24 @@ are registered and looked up under one category, `Errors` unless `messagesCatego
 `provideLangsys()` says otherwise, and it must match the category the server uses. In code,
 `LangsysService.renderServerMessage(entry, category?)` does the same.
 
+## Moving off a key-based library
+
+An app whose templates still call keys (`{{ 'checkout.submit' | t }}`) can keep its source-language
+files and hand them to `provideLangsys()`:
+
+```ts
+import en from './i18n/en.json';
+
+provideLangsys({ …, legacyKeys: [{ name: 'i18n/en.json', format: 'i18next', data: en }] });
+```
+
+The `t` pipe and `translate()` then resolve their argument as a key first. A key the files hold
+renders and registers its value — `Place order`, never `checkout.submit` — under the key's first
+segment as the category, unless the call passes one. Anything else is literal source text. The
+file's placeholders and plurals are converted to Langsys syntax. Formats are `i18next`, `vue-i18n`
+and `plain` (the default); any other format stops `init` with an error naming the file. Leave
+`legacyKeys` unset and no key lookup happens.
+
 ## Directives
 
 ```html

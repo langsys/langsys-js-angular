@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { Signal as SdkSignal, iCategories } from 'langsys-js-typescript';
+import type { LegacyKeyFile, Signal as SdkSignal, iCategories } from 'langsys-js-typescript';
 import type { WriteGrantSource } from './write-grant';
 
 /**
@@ -58,6 +58,14 @@ export interface LangsysConfig {
      * entry's `message`. Passed to the base SDK unchanged. @default 'Errors'
      */
     messagesCategory?: string;
+    /**
+     * Turn on the legacy-key mode (spec MIG) for an app moving off a key-based library: its kept
+     * source-language files, each parsed, as `{ name, format?, namespace?, data }`. `t()` and the `t`
+     * pipe then resolve their argument as a key first, and a hit registers the key's value, never the
+     * key. Passed to the base SDK unchanged; the base SDK reads `i18next`, `vue-i18n` and `plain`, and
+     * `init` rejects any other format, naming the file. Unset, no key lookup happens.
+     */
+    legacyKeys?: LegacyKeyFile[];
 
     /** Override the API host, e.g. `http://localhost:8000/api`. */
     apiUrl?: string;

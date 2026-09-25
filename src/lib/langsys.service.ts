@@ -158,6 +158,7 @@ export class LangsysService {
                     // renderer that cannot log in.
                     writeGrant: adaptWriteGrant(this.config.writeGrant),
                     messagesCategory: this.config.messagesCategory,
+                    legacyKeys: this.config.legacyKeys,
                     baseLocale: this.config.baseLocale,
                     debug: this.config.debug,
                     ssrTokenStrategy: this.config.ssrTokenStrategy,

@@ -309,6 +309,19 @@ describe('LangsysService', () => {
             expect(arg['messagesCategory']).toBe('Validation');
         });
 
+        it('passes legacyKeys to init by reference, untouched (MIG)', async () => {
+            const legacyKeys = [{ name: 'en.json', format: 'i18next', data: { checkout: { submit: 'Place order' } } }];
+            const svc = make({ legacyKeys });
+            await svc.init();
+
+            const arg = (LangsysApp.init as unknown as { mock: { calls: Record<string, unknown>[][] } }).mock
+                .calls[0][0];
+            expect(arg['legacyKeys']).toBe(legacyKeys);
+            expect(legacyKeys).toEqual([
+                { name: 'en.json', format: 'i18next', data: { checkout: { submit: 'Place order' } } },
+            ]);
+        });
+
         it('leaves writeGrant undefined when none is configured', async () => {
             const svc = make();
             await svc.init();

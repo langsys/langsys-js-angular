@@ -89,6 +89,7 @@ export {
 // Framework-agnostic type re-exports, so consumers never reach into the base SDK.
 export type {
     ExtractParamKeys,
+    LegacyKeyFile,
     ParamPrimitive,
     ParamsFor,
     ResolveServerMessagesOptions,
