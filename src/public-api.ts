@@ -76,6 +76,7 @@ export {
     renderServerMessage,
     resolveServerMessages,
     sTranslations,
+    SnapshotError,
     setWriteGrant,
     tSignal as t,
 } from 'langsys-js-typescript';
@@ -88,6 +89,7 @@ export {
 
 // Framework-agnostic type re-exports, so consumers never reach into the base SDK.
 export type {
+    CatalogSnapshot,
     ExtractParamKeys,
     LegacyKeyFile,
     ParamPrimitive,

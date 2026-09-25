@@ -45,6 +45,7 @@ vi.mock('langsys-js-typescript', () => {
 
     const LangsysApp = {
         init: vi.fn(async () => ({ status: true })),
+        loadSnapshot: vi.fn(() => true),
         refresh: vi.fn(async () => true),
         translationsLoadingPromise: Promise.resolve(),
         getCountries: vi.fn(async () => [{ code: 'US', label: 'United States' }]),
@@ -320,6 +321,38 @@ describe('LangsysService', () => {
             expect(legacyKeys).toEqual([
                 { name: 'en.json', format: 'i18next', data: { checkout: { submit: 'Place order' } } },
             ]);
+        });
+
+        it('loads a configured snapshot by reference, for the starting locale, before init (SNAP-2)', () => {
+            const snapshot = { format: 'langsys-catalog-snapshot', version: 1 };
+            const svc = make({ snapshot, initialLocale: 'es-ES' });
+            void svc.init();
+
+            // Synchronously: loaded by the time init() returns, and before the core's init starts.
+            const load = LangsysApp.loadSnapshot as unknown as ReturnType<typeof vi.fn>;
+            expect(load).toHaveBeenCalledTimes(1);
+            expect(load.mock.calls[0][0]).toBe(snapshot);
+            expect(load.mock.calls[0][1]).toBe('es-es');
+            expect(load.mock.invocationCallOrder[0]).toBeLessThan(
+                (LangsysApp.init as unknown as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
+            );
+        });
+
+        it('does not load a snapshot when none is configured', async () => {
+            await make().init();
+            expect(LangsysApp.loadSnapshot).not.toHaveBeenCalled();
+        });
+
+        it('a refused snapshot is reported on error and init proceeds (SNAP-3)', async () => {
+            (LangsysApp.loadSnapshot as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+                throw new Error('The snapshot checksum does not match its contents.');
+            });
+            const svc = make({ snapshot: '{}' });
+            await svc.init();
+
+            expect(svc.error()).toBe('The snapshot checksum does not match its contents.');
+            expect(LangsysApp.init).toHaveBeenCalledTimes(1);
+            expect(svc.ready()).toBe(true);
         });
 
         it('leaves writeGrant undefined when none is configured', async () => {

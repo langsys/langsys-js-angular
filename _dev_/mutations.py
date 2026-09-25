@@ -64,6 +64,9 @@ MUTATIONS = [
     ('MSG-5', 'render entry.message without asking the core', SVC, "        return renderServerMessage(entry, category);", "        return void category, entry.message;", [S('server-message')]),
     ('MSG-6', 'drop the messagesCategory pass-through', SVC, "                    messagesCategory: this.config.messagesCategory,\n", "", [S('langsys.service')]),
     ('MIG', 'drop the legacyKeys pass-through', SVC, "                    legacyKeys: this.config.legacyKeys,\n", "", [S('langsys.service'), S('legacy-keys.contract')]),
+    ('SNAP-2', 'drop the loadSnapshot call', SVC, "LangsysApp.loadSnapshot(this.config.snapshot, source.get());", "void source;", [S('langsys.service'), 'src/lib/snapshot']),
+    ('SNAP-2', 'defer the snapshot load past the first render', SVC, "LangsysApp.loadSnapshot(this.config.snapshot, source.get());", "void Promise.resolve().then(() => LangsysApp.loadSnapshot(this.config.snapshot!, source.get()));", [S('langsys.service'), 'src/lib/snapshot']),
+    ('SNAP-3', 'serve on without reporting a refused snapshot', SVC, "                    this._error.set(e instanceof Error ? e.message : String(e));\n", "                    void e;\n", [S('langsys.service'), 'src/lib/snapshot']),
     ('SSR-3', 'delete the README precondition callout', 'README.md', 'REGEX', r"> \*\*Precondition[\s\S]*?no report\.\n\n", [S('conformance-probes')]),
 ]
 

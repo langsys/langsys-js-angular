@@ -183,13 +183,18 @@ export function hint13Case(opts: { name: string; shell: unknown; wired: boolean;
     });
 
     describe(`HINT-13 — ${opts.wired ? 'with provideLangsysNavigation()' : 'without the wiring'}`, () => {
-        it(opts.name, async () => {
-            await navigateThrough(fx, opts.shell, opts.wired ? [provideLangsysNavigation()] : [], '/a', '/b');
+        // A full scenario is two navigations against a live double; it can run past vitest's 5s default.
+        it(
+            opts.name,
+            async () => {
+                await navigateThrough(fx, opts.shell, opts.wired ? [provideLangsysNavigation()] : [], '/a', '/b');
 
-            const hinted = await hintedPaths(fx);
-            expect(hinted, 'presence: the first page was reported').toContain('/a');
-            if (opts.reportedAtNewUrl) expect(hinted, 'reported for the page navigated to').toContain('/b');
-            else expect(hinted, 'nothing reported for the page navigated to').not.toContain('/b');
-        });
+                const hinted = await hintedPaths(fx);
+                expect(hinted, 'presence: the first page was reported').toContain('/a');
+                if (opts.reportedAtNewUrl) expect(hinted, 'reported for the page navigated to').toContain('/b');
+                else expect(hinted, 'nothing reported for the page navigated to').not.toContain('/b');
+            },
+            30_000
+        );
     });
 }

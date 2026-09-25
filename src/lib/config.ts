@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { LegacyKeyFile, Signal as SdkSignal, iCategories } from 'langsys-js-typescript';
+import type { CatalogSnapshot, LegacyKeyFile, Signal as SdkSignal, iCategories } from 'langsys-js-typescript';
 import type { WriteGrantSource } from './write-grant';
 
 /**
@@ -66,6 +66,15 @@ export interface LangsysConfig {
      * `init` rejects any other format, naming the file. Unset, no key lookup happens.
      */
     legacyKeys?: LegacyKeyFile[];
+    /**
+     * A catalog snapshot exported by the Langsys CLI (spec SNAP-2), as its JSON text or parsed. It is
+     * loaded synchronously as the preloaded catalog for the starting locale before the first render,
+     * so the app paints translated text with no network call; the catalog is then fetched as usual
+     * and replaces it. Passed to the base SDK's `loadSnapshot()` unchanged. A snapshot the base SDK
+     * refuses — edited, or not a snapshot — is not served: {@link LangsysService.error} names the
+     * reason and the catalog is fetched as if none were configured.
+     */
+    snapshot?: string | CatalogSnapshot;
 
     /** Override the API host, e.g. `http://localhost:8000/api`. */
     apiUrl?: string;

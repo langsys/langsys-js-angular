@@ -145,6 +145,17 @@ export class LangsysService {
 
             const source = this.config.UserLocaleStore ?? this.store!;
 
+            // Synchronously, before the first await: `init()` runs in APP_INITIALIZER, so the
+            // snapshot is the published catalog before anything renders. A refused snapshot is
+            // not served; the catalog fetch below proceeds as if none were configured.
+            if (this.config.snapshot !== undefined) {
+                try {
+                    LangsysApp.loadSnapshot(this.config.snapshot, source.get());
+                } catch (e) {
+                    this._error.set(e instanceof Error ? e.message : String(e));
+                }
+            }
+
             try {
                 const res = await LangsysApp.init({
                     projectid,

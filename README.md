@@ -196,6 +196,25 @@ file's placeholders and plurals are converted to Langsys syntax. Formats are `i1
 and `plain` (the default); any other format stops `init` with an error naming the file. Leave
 `legacyKeys` unset and no key lookup happens.
 
+## Snapshots
+
+A catalog snapshot exported by the Langsys CLI can ship with the app, so the first render — or a
+session with no network — has translations without waiting for a fetch:
+
+```ts
+import snapshot from './langsys-snapshot.json';
+
+provideLangsys({ …, snapshot });
+```
+
+It is loaded synchronously as the catalog for the starting locale before anything renders. It is a
+cache, not the catalog of record: the catalog is still fetched, replaces it and supplies any phrase
+it lacks, and with no network the snapshot keeps rendering and a phrase it lacks shows its source
+text. Refresh it by exporting again, never by editing it — an edited snapshot no longer matches its
+checksum, so it is refused: nothing from it is served, `LangsysService.error` names the reason
+(`SnapshotError` is re-exported for matching on it in code), and the catalog is fetched as if no
+snapshot were configured.
+
 ## Directives
 
 ```html
