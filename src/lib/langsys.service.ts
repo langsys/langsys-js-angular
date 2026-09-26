@@ -18,12 +18,14 @@ import {
     canonicalizeLocale,
     createRequestScope,
     createSignal,
+    parseSnapshot,
     renderServerMessage,
     currentlyLoadedLocale,
     sTranslations,
     tSignal,
     type TFunction,
     type iCategories,
+    type CatalogSnapshot,
     type iLangsysInitConfig,
     type iLangsysResponse,
     type RequestScope,
@@ -31,7 +33,7 @@ import {
 } from 'langsys-js-typescript';
 import { LANGSYS_CONFIG } from './config';
 import { createLocaleStore, type LocaleStore } from './locale-store';
-import { LANGSYS_SEED, configureOnce } from './request-scope';
+import { LANGSYS_SEED, configureOnce, servedLocale, servedLocalesOf } from './request-scope';
 import { fromSdkSignal } from './signal-bridge';
 import { createWriteEnabledSignal } from './write-enabled';
 import { adaptWriteGrant } from './write-grant';
@@ -270,12 +272,28 @@ export class LangsysService {
             // or source text when its own fetch fails, as the page does (WIRE-4).
             const failed = res?.status === false;
             if (failed) this._error.set(res.errors?.join(', ') ?? 'Langsys init failed.');
-            const locale = canonicalizeLocale(rawLocale);
+            // The served locale: the app's, mapped and validated against what the project serves.
+            // Offline, a configured snapshot answers for authorization and supplies the catalog.
+            let locale = canonicalizeLocale(rawLocale);
+            let catalog: iCategories | undefined;
+            const authorized = failed ? null : servedLocalesOf(res?.data);
+            if (authorized) {
+                locale = servedLocale(locale, authorized);
+            } else if (this.config.snapshot !== undefined) {
+                const snapshot = this.readSnapshot();
+                if (snapshot) {
+                    locale = servedLocale(locale, {
+                        base: canonicalizeLocale(snapshot.base_locale),
+                        targets: snapshot.locales.map(canonicalizeLocale),
+                        defaults: {},
+                    });
+                    catalog = snapshot.catalog[locale] as iCategories | undefined;
+                }
+            }
             const given = this.config.initialTranslationsLocale;
-            const catalog =
-                this.config.initialTranslations && given && canonicalizeLocale(given) === locale
-                    ? this.config.initialTranslations
-                    : undefined;
+            if (this.config.initialTranslations && given && canonicalizeLocale(given) === locale) {
+                catalog = this.config.initialTranslations;
+            }
             const scope = await createRequestScope({ locale, catalog, url: this.platformLocation?.href || undefined });
             this.scope = scope;
             const seed = scope.seed();
@@ -285,6 +303,16 @@ export class LangsysService {
             this.transferState.set(LANGSYS_SEED, seed);
             if (!failed) this._ready.set(true);
             return res;
+        } catch (e) {
+            this._error.set(e instanceof Error ? e.message : String(e));
+            return null;
+        }
+    }
+
+    /** The configured snapshot, verified; null when it is refused (the reason reaches `error`). */
+    private readSnapshot(): CatalogSnapshot | null {
+        try {
+            return parseSnapshot(this.config.snapshot);
         } catch (e) {
             this._error.set(e instanceof Error ? e.message : String(e));
             return null;

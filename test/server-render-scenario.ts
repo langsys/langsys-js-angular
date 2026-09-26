@@ -63,7 +63,11 @@ export interface ServedRequest {
     end: () => void;
 }
 
-export async function serveRequest(apiUrl: string, locale: string): Promise<ServedRequest> {
+export async function serveRequest(
+    apiUrl: string,
+    locale: string,
+    extra: Record<string, unknown> = {}
+): Promise<ServedRequest> {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
         providers: [
@@ -77,6 +81,7 @@ export async function serveRequest(apiUrl: string, locale: string): Promise<Serv
                     baseLocale: 'en',
                     initialLocale: locale,
                     ssrTokenStrategy: 'server',
+                    ...extra,
                 },
             },
         ],

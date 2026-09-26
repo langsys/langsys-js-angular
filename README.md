@@ -322,14 +322,19 @@ application for every request, and on the server platform this binding opens a *
 for it — the base SDK's own per-request locale, catalog and misses — so concurrent requests never
 see each other's language:
 
-- **Locale.** The scope renders the locale your app resolved for the request: `initialLocale`, or
-  your `UserLocaleStore`, set per request in your server config.
+- **Locale.** The scope renders the locale your app resolved for the request — `initialLocale`, or
+  your `UserLocaleStore`, set per request in your server config — in the project's form: `es-ES`
+  and `es_ES` are `es-es`, and a bare `es` is the project's default Spanish locale. A locale the
+  project does not serve is served as its base locale. When the API cannot be reached, a
+  configured `snapshot` answers instead: its locales are the ones served, and its catalog renders.
 - **Catalog.** `initialTranslations` is used when its `initialTranslationsLocale` is the request's
   locale; otherwise the SDK fetches the catalog, at most once per request and shared read-only
   between requests for the same locale. A server render always waits for it, whatever
   `blockUntilReady` says.
 - **Hydration.** The scope's catalog travels to the client in `TransferState`, and the client
-  seeds the SDK with it before the first render, so hydration renders the same text.
+  seeds the SDK with it before the first render, so hydration renders the same text. Angular's
+  hydration does not compare text, so without the seed nothing warns: the page would simply change
+  language as it hydrates.
 - **Misses.** Phrases the render missed are sent after the response, once the request's
   application is destroyed — only when the key may write and `ssrTokenStrategy` is `'server'`
   (or `'auto'` for a short list). Otherwise the client registers them after hydration.

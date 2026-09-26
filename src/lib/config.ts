@@ -72,8 +72,9 @@ export interface LangsysConfig {
      * so the app paints translated text with no network call; the catalog is then fetched as usual
      * and replaces it. Passed to the base SDK's `loadSnapshot()` unchanged. A snapshot the base SDK
      * refuses — edited, or not a snapshot — is not served: {@link LangsysService.error} names the
-     * reason and the catalog is fetched as if none were configured. A server render uses its request
-     * scope's catalog instead; the snapshot is the browser's.
+     * reason and the catalog is fetched as if none were configured. A server render fetches its
+     * request's catalog and uses the snapshot only when the API cannot be reached, where it also
+     * decides which locales are served (SRV-6).
      */
     snapshot?: string | CatalogSnapshot;
 
