@@ -1,4 +1,5 @@
-import { APP_INITIALIZER, makeEnvironmentProviders, type EnvironmentProviders } from '@angular/core';
+import { APP_INITIALIZER, PLATFORM_ID, makeEnvironmentProviders, type EnvironmentProviders } from '@angular/core';
+import { isPlatformServer } from '@angular/common';
 import { LANGSYS_CONFIG, type LangsysConfig } from './config';
 import { LangsysService } from './langsys.service';
 
@@ -29,10 +30,11 @@ export function provideLangsys(config: LangsysConfig): EnvironmentProviders {
         {
             provide: APP_INITIALIZER,
             multi: true,
-            deps: [LangsysService],
-            useFactory: (langsys: LangsysService) => () => {
+            deps: [LangsysService, PLATFORM_ID],
+            useFactory: (langsys: LangsysService, platformId: object) => () => {
                 const started = langsys.init();
-                return config.blockUntilReady === false ? undefined : started;
+                // A server render always waits for its request scope: its bytes are final.
+                return config.blockUntilReady === false && !isPlatformServer(platformId) ? undefined : started;
             },
         },
     ]);

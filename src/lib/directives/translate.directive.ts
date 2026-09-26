@@ -3,6 +3,7 @@ import {
     ElementRef,
     Input,
     PLATFORM_ID,
+    Renderer2,
     inject,
     type AfterViewInit,
     type OnChanges,
@@ -10,7 +11,7 @@ import {
     type SimpleChanges,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Translate } from 'langsys-js-typescript';
+import { CONTENT_BLOCK_MARKER_ATTR, Translate } from 'langsys-js-typescript';
 import type { ParamPrimitive } from 'langsys-js-typescript';
 
 /**
@@ -49,6 +50,7 @@ export class TranslateDirective implements AfterViewInit, OnChanges, OnDestroy {
 
     private readonly host = inject(ElementRef<HTMLElement>);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+    private readonly renderer = inject(Renderer2);
     private instance: Translate | null = null;
 
     ngAfterViewInit(): void {
@@ -74,7 +76,14 @@ export class TranslateDirective implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     private create(): void {
-        if (!this.isBrowser) return; // the tokenizer needs a real DOM
+        if (!this.isBrowser) {
+            // The core's block path needs a real DOM, so a server render serves the block's
+            // source. An identity the app supplied is stamped here all the same, so the served
+            // block can be traced to its id, and the client's `Translate` adopts it (MARK-1, MARK-3).
+            if (this.custom_id)
+                this.renderer.setAttribute(this.host.nativeElement, CONTENT_BLOCK_MARKER_ATTR, this.custom_id);
+            return;
+        }
         this.instance = new Translate(this.host.nativeElement as HTMLElement, {
             category: this.category,
             custom_id: this.custom_id,

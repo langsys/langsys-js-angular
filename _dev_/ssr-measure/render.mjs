@@ -25,7 +25,7 @@ Component({
     selector: 'app-root',
     standalone: true,
     imports: [...LANGSYS_IMPORTS],
-    template: `<p id="pipe">{{ 'Pricing' | t: 'UI' }}</p><p id="miss">{{ 'NotInCatalog' | t: 'UI' }}</p><section id="block" lsTranslate category="UI"><h2>Pricing</h2></section>`,
+    template: `<p id="pipe">{{ 'Pricing' | t: 'UI' }}</p><p id="miss">{{ 'NotInCatalog' | t: 'UI' }}</p><section id="block" lsTranslate category="UI"><h2>Pricing</h2></section><section id="named" lsTranslate category="UI" custom_id="pricing-hero"><h2>Pricing</h2></section>`,
 })(App);
 
 async function render(locale) {
@@ -50,12 +50,14 @@ async function render(locale) {
     );
     const pick = (id) => (html.match(new RegExp(`<[a-z0-9]+ id="${id}"[^>]*>([\\s\\S]*?)</[a-z0-9]+>`)) ?? [])[1];
     const blockTag = (html.match(/<section id="block"[^>]*>/) ?? [''])[0];
+    const namedTag = (html.match(/<section id="named"[^>]*>/) ?? [''])[0];
     return {
         html,
         pipe: pick('pipe'),
         miss: pick('miss'),
         block: pick('block'),
         stamped: /data-ls-contentblock=/.test(blockTag),
+        namedStamp: (namedTag.match(/data-ls-contentblock="([^"]*)"/) ?? [])[1] ?? null,
     };
 }
 
@@ -63,7 +65,7 @@ const [mode, arg] = process.argv.slice(2);
 if (mode === 'served') {
     const r = await render('it-it');
     console.log(
-        `SRV-1/MARK-1 served it-it: pipe=${JSON.stringify(r.pipe)} miss=${JSON.stringify(r.miss)} block=${JSON.stringify(r.block)} blockStamped=${r.stamped}`
+        `SRV-1/MARK-1 served it-it: pipe=${JSON.stringify(r.pipe)} miss=${JSON.stringify(r.miss)} block=${JSON.stringify(r.block)} blockStamped=${r.stamped} namedBlockStamp=${JSON.stringify(r.namedStamp)}`
     );
 }
 if (mode === 'solo') {
@@ -75,7 +77,7 @@ if (mode === 'solo') {
 if (mode === 'pair') {
     const [it, de] = await Promise.all([render('it-it'), render('de-de')]);
     console.log(
-        `SRV-2 concurrent: it-it served ${JSON.stringify(it.pipe)} (expected "Prezzi"), de-de served ${JSON.stringify(de.pipe)} (expected "Preise")`
+        `SRV-2 concurrent: it-it served ${JSON.stringify(it.pipe)} (expected "Prezzi"), de-de served ${JSON.stringify(de.pipe)} (expected "Preise"); German in the Italian bytes: ${it.html.includes('Preise')}, Italian in the German bytes: ${de.html.includes('Prezzi')}`
     );
 }
 if (mode === 'sequence') {

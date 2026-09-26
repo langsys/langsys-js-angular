@@ -10,9 +10,9 @@ import type { Signal as SdkSignal } from 'langsys-js-typescript';
  * signal is seeded immediately — no flash of untranslated content.
  *
  * When called inside an injection context the subscription is torn down with
- * the injector (via `DestroyRef`). Outside one, pass `autoDestroy: false` (the
- * SDK's own singletons live for the app's lifetime, which is what the
- * root-provided `LangsysService` relies on).
+ * the injector (via `DestroyRef`) — for the root-provided `LangsysService`, when
+ * the application is destroyed. Pass `autoDestroy: false` only for a bridge that
+ * must outlive every injector.
  */
 export function fromSdkSignal<T>(sdkSignal: SdkSignal<T>, options: { autoDestroy?: boolean } = {}): Signal<T> {
     const { autoDestroy = true } = options;

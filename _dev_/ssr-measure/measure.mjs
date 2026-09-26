@@ -33,3 +33,25 @@ for (const args of cases) {
             .join('\n') + '\n'
     );
 }
+
+// Subscription accounting over 50 server renders, and its positive control.
+for (const mode of ['control', 'renders']) {
+    const out = execFileSync(process.execPath, [join(here, 'leak.mjs'), mode], { encoding: 'utf8', cwd: here });
+    process.stdout.write(
+        out
+            .split('\n')
+            .filter((l) => /^(LEAK|TIMEOUT)/.test(l))
+            .join('\n') + '\n'
+    );
+}
+
+// What escapes the request scope: app code calling the core directly.
+for (const mode of ['direct', 'wrapped', 'wrapped', 'entered', 'entered']) {
+    const out = execFileSync(process.execPath, [join(here, 'escape.mjs'), mode], { encoding: 'utf8', cwd: here });
+    process.stdout.write(
+        out
+            .split('\n')
+            .filter((l) => /^(SRV|TIMEOUT)/.test(l))
+            .join('\n') + '\n'
+    );
+}

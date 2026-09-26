@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { TransferState } from '@angular/core';
+import { LANGSYS_SEED } from './request-scope';
 import { Component, inject, signal as ngSignal } from '@angular/core';
 
 /** Build a fake base-SDK Signal. */
@@ -46,6 +48,7 @@ vi.mock('langsys-js-typescript', () => {
     const LangsysApp = {
         init: vi.fn(async () => ({ status: true })),
         loadSnapshot: vi.fn(() => true),
+        seedCatalog: vi.fn(),
         refresh: vi.fn(async () => true),
         translationsLoadingPromise: Promise.resolve(),
         getCountries: vi.fn(async () => [{ code: 'US', label: 'United States' }]),
@@ -353,6 +356,26 @@ describe('LangsysService', () => {
             expect(svc.error()).toBe('The snapshot checksum does not match its contents.');
             expect(LangsysApp.init).toHaveBeenCalledTimes(1);
             expect(svc.ready()).toBe(true);
+        });
+
+        it("seeds the core with the server render's catalog before init, and consumes it (SRV-4)", () => {
+            const svc = make();
+            const seed = { locale: 'it-it', catalog: { UI: { Pricing: 'Prezzi' } } };
+            TestBed.inject(TransferState).set(LANGSYS_SEED, seed as never);
+            void svc.init();
+
+            const seedCatalog = LangsysApp.seedCatalog as unknown as ReturnType<typeof vi.fn>;
+            expect(seedCatalog).toHaveBeenCalledTimes(1);
+            expect(seedCatalog.mock.calls[0]).toEqual([seed.catalog, 'it-it']);
+            expect(seedCatalog.mock.invocationCallOrder[0]).toBeLessThan(
+                (LangsysApp.init as unknown as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
+            );
+            expect(TestBed.inject(TransferState).hasKey(LANGSYS_SEED)).toBe(false);
+        });
+
+        it('seeds nothing when the page carries no server seed', async () => {
+            await make().init();
+            expect(LangsysApp.seedCatalog).not.toHaveBeenCalled();
         });
 
         it('leaves writeGrant undefined when none is configured', async () => {

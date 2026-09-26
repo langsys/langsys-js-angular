@@ -1,21 +1,37 @@
-import { Injectable, computed, inject, signal, type Signal } from '@angular/core';
+import {
+    DestroyRef,
+    Injectable,
+    PLATFORM_ID,
+    TransferState,
+    computed,
+    inject,
+    signal,
+    type Signal,
+    type WritableSignal,
+} from '@angular/core';
+import { PlatformLocation, isPlatformServer } from '@angular/common';
 import { toObservable } from '@angular/core/rxjs-interop';
 import type { Observable } from 'rxjs';
 import {
     LangsysApp,
     LangsysAppAPI,
     canonicalizeLocale,
+    createRequestScope,
+    createSignal,
     renderServerMessage,
     currentlyLoadedLocale,
     sTranslations,
     tSignal,
     type TFunction,
     type iCategories,
+    type iLangsysInitConfig,
     type iLangsysResponse,
+    type RequestScope,
     type ServerMessage,
 } from 'langsys-js-typescript';
 import { LANGSYS_CONFIG } from './config';
 import { createLocaleStore, type LocaleStore } from './locale-store';
+import { LANGSYS_SEED, configureOnce } from './request-scope';
 import { fromSdkSignal } from './signal-bridge';
 import { createWriteEnabledSignal } from './write-enabled';
 import { adaptWriteGrant } from './write-grant';
@@ -99,12 +115,38 @@ export class LangsysService {
 
     private initPromise: Promise<iLangsysResponse | null> | null = null;
 
+    private readonly isServer = isPlatformServer(inject(PLATFORM_ID));
+    private readonly transferState = inject(TransferState);
+    private readonly platformLocation = inject(PlatformLocation, { optional: true });
+    /** On a server: this request's scope (SRV-7), opened by `init()` and closed with the application. */
+    private scope: RequestScope | null = null;
+    private readonly serverState: {
+        t: WritableSignal<TFunction>;
+        locale: WritableSignal<string>;
+        catalog: WritableSignal<iCategories>;
+    } | null = null;
+
     constructor() {
-        // Bridge the SDK's raw signals. `autoDestroy: false` because this service
-        // is root-provided and lives for the app's lifetime.
-        this.t = fromSdkSignal<TFunction>(tSignal, { autoDestroy: false });
-        this.currentLocale = fromSdkSignal<string>(currentlyLoadedLocale, { autoDestroy: false });
-        this.translations = fromSdkSignal<iCategories>(sTranslations, { autoDestroy: false });
+        if (this.isServer) {
+            // No subscription on a server. The SDK's signals are process-wide and see every
+            // request the process renders; this request reads its own scope, which `init()`
+            // opens before anything renders.
+            this.serverState = {
+                t: signal(tSignal.get()),
+                locale: signal(''),
+                catalog: signal({} as iCategories),
+            };
+            this.t = this.serverState.t.asReadonly();
+            this.currentLocale = this.serverState.locale.asReadonly();
+            this.translations = this.serverState.catalog.asReadonly();
+            // After the response: the scope sends what the render missed, when it may (SRV-3).
+            inject(DestroyRef).onDestroy(() => void this.scope?.close());
+        } else {
+            // Bridged, and released with the root injector.
+            this.t = fromSdkSignal<TFunction>(tSignal);
+            this.currentLocale = fromSdkSignal<string>(currentlyLoadedLocale);
+            this.translations = fromSdkSignal<iCategories>(sTranslations);
+        }
 
         // Deliberately NOT `fromSdkSignal`: that bridge subscribes eagerly, which
         // is precisely what the hydration guard must not do. Same mechanism
@@ -145,6 +187,16 @@ export class LangsysService {
 
             const source = this.config.UserLocaleStore ?? this.store!;
 
+            if (this.isServer) return this.openRequestScope(source.get());
+
+            // The server's hydration seed, handed to the core synchronously before the first
+            // await, so hydration renders the catalog the server rendered (SRV-4).
+            const seed = this.transferState.get(LANGSYS_SEED, null);
+            if (seed) {
+                this.transferState.remove(LANGSYS_SEED);
+                LangsysApp.seedCatalog(seed.catalog, seed.locale);
+            }
+
             // Synchronously, before the first await: `init()` runs in APP_INITIALIZER, so the
             // snapshot is the published catalog before anything renders. A refused snapshot is
             // not served; the catalog fetch below proceeds as if none were configured.
@@ -158,21 +210,8 @@ export class LangsysService {
 
             try {
                 const res = await LangsysApp.init({
-                    projectid,
-                    key,
+                    ...this.initOptions(),
                     UserLocaleStore: source,
-                    // A signal becomes a per-call provider; a string or function
-                    // passes through. Configuring a provider that returns `null`
-                    // until login beats leaving this unset and calling
-                    // `setWriteGrant()` later — an unset grant tells the SDK no
-                    // grant can ever arrive, so it releases held misses to a
-                    // renderer that cannot log in.
-                    writeGrant: adaptWriteGrant(this.config.writeGrant),
-                    messagesCategory: this.config.messagesCategory,
-                    legacyKeys: this.config.legacyKeys,
-                    baseLocale: this.config.baseLocale,
-                    debug: this.config.debug,
-                    ssrTokenStrategy: this.config.ssrTokenStrategy,
                     initialTranslations: this.config.initialTranslations,
                     initialTranslationsLocale: this.config.initialTranslationsLocale,
                 });
@@ -190,6 +229,66 @@ export class LangsysService {
         })();
 
         return this.initPromise;
+    }
+
+    /** The core's configuration, shared by the browser's `init` and the server's once-per-process one. */
+    private initOptions(): Omit<iLangsysInitConfig, 'UserLocaleStore'> {
+        return {
+            projectid: this.config.projectid,
+            key: this.config.key,
+            // A signal becomes a per-call provider; a string or function
+            // passes through. Configuring a provider that returns `null`
+            // until login beats leaving this unset and calling
+            // `setWriteGrant()` later — an unset grant tells the SDK no
+            // grant can ever arrive, so it releases held misses to a
+            // renderer that cannot log in.
+            writeGrant: adaptWriteGrant(this.config.writeGrant),
+            messagesCategory: this.config.messagesCategory,
+            legacyKeys: this.config.legacyKeys,
+            baseLocale: this.config.baseLocale,
+            debug: this.config.debug,
+            ssrTokenStrategy: this.config.ssrTokenStrategy,
+        };
+    }
+
+    /**
+     * On a server: configure the core once per process, then open this request's scope for the
+     * locale the app resolved (SRV-6) and render from it. `initialTranslations` for that locale
+     * is the scope's catalog; otherwise the core fetches it, at most once per request. The seed
+     * goes into `TransferState` for the client.
+     */
+    private async openRequestScope(rawLocale: string): Promise<iLangsysResponse | null> {
+        try {
+            const res = await configureOnce(
+                `${this.config.apiUrl ?? ''}\0${this.config.projectid}\0${this.config.key}`,
+                {
+                    ...this.initOptions(),
+                    UserLocaleStore: createSignal(canonicalizeLocale(this.config.baseLocale ?? 'en')),
+                }
+            );
+            // A failed authorization still renders: the scope serves the catalog it was given,
+            // or source text when its own fetch fails, as the page does (WIRE-4).
+            const failed = res?.status === false;
+            if (failed) this._error.set(res.errors?.join(', ') ?? 'Langsys init failed.');
+            const locale = canonicalizeLocale(rawLocale);
+            const given = this.config.initialTranslationsLocale;
+            const catalog =
+                this.config.initialTranslations && given && canonicalizeLocale(given) === locale
+                    ? this.config.initialTranslations
+                    : undefined;
+            const scope = await createRequestScope({ locale, catalog, url: this.platformLocation?.href || undefined });
+            this.scope = scope;
+            const seed = scope.seed();
+            this.serverState!.t.set(scope.t);
+            this.serverState!.locale.set(scope.locale);
+            this.serverState!.catalog.set(seed.catalog);
+            this.transferState.set(LANGSYS_SEED, seed);
+            if (!failed) this._ready.set(true);
+            return res;
+        } catch (e) {
+            this._error.set(e instanceof Error ? e.message : String(e));
+            return null;
+        }
     }
 
     /**
@@ -210,7 +309,8 @@ export class LangsysService {
      */
     renderServerMessage(entry: ServerMessage, category?: string): string {
         this.t();
-        return renderServerMessage(entry, category);
+        const scope = this.scope;
+        return scope ? scope.run(() => renderServerMessage(entry, category)) : renderServerMessage(entry, category);
     }
 
     /** Change the user locale. Throws if the app supplied its own locale source. */

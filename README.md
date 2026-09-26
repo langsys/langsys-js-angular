@@ -317,25 +317,36 @@ so write through the returned source (or use the default store and `setLocale()`
 
 ## SSR
 
-Pass a server-prefetched catalog to skip the client's initial fetch:
+Server rendering needs nothing beyond `provideLangsys()`. Angular SSR bootstraps a fresh
+application for every request, and on the server platform this binding opens a **request scope**
+for it — the base SDK's own per-request locale, catalog and misses — so concurrent requests never
+see each other's language:
 
-```ts
-provideLangsys({ …, initialTranslations, initialTranslationsLocale, ssrTokenStrategy: 'client' });
-```
+- **Locale.** The scope renders the locale your app resolved for the request: `initialLocale`, or
+  your `UserLocaleStore`, set per request in your server config.
+- **Catalog.** `initialTranslations` is used when its `initialTranslationsLocale` is the request's
+  locale; otherwise the SDK fetches the catalog, at most once per request and shared read-only
+  between requests for the same locale. A server render always waits for it, whatever
+  `blockUntilReady` says.
+- **Hydration.** The scope's catalog travels to the client in `TransferState`, and the client
+  seeds the SDK with it before the first render, so hydration renders the same text.
+- **Misses.** Phrases the render missed are sent after the response, once the request's
+  application is destroyed — only when the key may write and `ssrTokenStrategy` is `'server'`
+  (or `'auto'` for a short list). Otherwise the client registers them after hydration.
 
-The DOM directives no-op on the server (they need a real DOM) and initialize on hydration, so
-`lsTranslate` and `lsPhrase` content is served in the base language, without its identity stamp,
-and translated after hydration.
+The pipes and `LangsysService` read the request's scope. The base SDK's own globals are not
+request-scoped: in a server render, translate through the pipe or the service, not by calling
+the SDK's `t` or `LangsysApp.t` directly — those read no request's catalog.
+
+`lsTranslate` and `lsPhrase` need a real DOM, so a server render serves their content as source
+and translates it after hydration. A block with an explicit `custom_id` is stamped with it on the
+server, so the served block can be traced to its id.
 
 > **Precondition — `ssrTokenStrategy: 'server'` requires the origin server's IP address to be
 > allow-listed for the project.** Without it the server lane fails silently and totally: no error,
 > no request, nothing in the catalog, no report.
 
-> **Known limitation — concurrent server renders share one catalog.** The catalog lives in the base
-> SDK's module globals, which are process-wide, so two requests rendering different locales at the
-> same time can serve each other's translations. Measured: an `it-it` render concurrent with a
-> `de-de` one was served German. Until request-scoped serving lands, `initialTranslations` gives
-> correct per-locale bytes only when renders do not overlap. Reproduce with `_dev_/ssr-measure`.
+Reproduce the server measurements with `_dev_/ssr-measure`.
 
 ## License
 
