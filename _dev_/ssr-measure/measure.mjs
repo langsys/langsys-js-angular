@@ -23,7 +23,7 @@ cpSync(dist, join(nm, 'langsys-js-angular'), { recursive: true });
 rmSync(join(nm, 'langsys-js-typescript'), { recursive: true, force: true });
 symlinkSync(realpathSync(join(repo, 'node_modules', 'langsys-js-typescript')), join(nm, 'langsys-js-typescript'));
 
-const cases = [['served'], ['solo', 'it-it'], ['solo', 'de-de'], ['pair'], ['pair']];
+const cases = [['served'], ['solo', 'it-it'], ['solo', 'de-de'], ['pair'], ['pair'], ['sequence'], ['sequence']];
 for (const args of cases) {
     const out = execFileSync(process.execPath, [join(here, 'render.mjs'), ...args], { encoding: 'utf8', cwd: here });
     process.stdout.write(

@@ -51,6 +51,7 @@ async function render(locale) {
     const pick = (id) => (html.match(new RegExp(`<[a-z0-9]+ id="${id}"[^>]*>([\\s\\S]*?)</[a-z0-9]+>`)) ?? [])[1];
     const blockTag = (html.match(/<section id="block"[^>]*>/) ?? [''])[0];
     return {
+        html,
         pipe: pick('pipe'),
         miss: pick('miss'),
         block: pick('block'),
@@ -75,6 +76,14 @@ if (mode === 'pair') {
     const [it, de] = await Promise.all([render('it-it'), render('de-de')]);
     console.log(
         `SRV-2 concurrent: it-it served ${JSON.stringify(it.pipe)} (expected "Prezzi"), de-de served ${JSON.stringify(de.pipe)} (expected "Preise")`
+    );
+}
+if (mode === 'sequence') {
+    // SRV-7's Test: one process, `de` seeded and rendered, then `it` rendered as a new request.
+    await render('de-de');
+    const it = await render('it-it');
+    console.log(
+        `SRV-7 de then it: it-it served ${JSON.stringify(it.pipe)} (expected "Prezzi"), German in its bytes: ${it.html.includes('Preise')}`
     );
 }
 process.exit(0);
