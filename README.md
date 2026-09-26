@@ -156,14 +156,16 @@ appears on. It lives in its own entry point, so applications without `@angular/r
 
 ## Server messages
 
-A Langsys-aware server sends validation errors and system messages as entries —
-`{ field?, code, message, template, params? }`. Find them in a response wherever they sit, and render
-them with the `tMessage` pipe:
+A Langsys-aware server leaves its framework's error response as it is and attaches message entries
+beside it — for Laravel, under `langsys_errors` next to the 422 body's own `errors` map. An entry
+carries `template`, the framework's sentence unfilled, its `params`, and `message`, the sentence
+already filled; `field` and `code` are the framework's own, passed through unchanged. Tell
+`resolveServerMessages` where the entries sit, and render them with the `tMessage` pipe:
 
 ```ts
 import { resolveServerMessages } from 'langsys-js-angular';
 
-this.errors = resolveServerMessages(response.error); // optionally { key: 'data.errors' } or { resolver }
+this.errors = resolveServerMessages(response.error, { key: 'langsys_errors' });
 ```
 
 ```html
@@ -172,10 +174,15 @@ this.errors = resolveServerMessages(response.error); // optionally { key: 'data.
 }
 ```
 
-The pipe shows the translated template when the catalog holds one, and the server's own `message`
-otherwise. `code` is for your logic — highlight or focus a field — never for choosing text. Templates
-are registered and looked up under one category, `Errors` unless `messagesCategory` in
-`provideLangsys()` says otherwise, and it must match the category the server uses. In code,
+`key` is the dotted path your server attaches the entries under, and `pieces` renames an entry's
+pieces when the server was configured with names of its own; for failures carried some other way,
+pass `{ resolver: (body) => entries }` instead. The rest of the body is never searched, and with
+neither `key` nor `resolver` the call throws.
+
+The pipe shows the translated template when the catalog holds one, and `message` otherwise. `code`
+is for your logic — highlight or focus a field — never for choosing text. Templates are registered
+and looked up under one category, `Errors` unless `messagesCategory` in `provideLangsys()` says
+otherwise, and it must match the category the server uses. In code,
 `LangsysService.renderServerMessage(entry, category?)` does the same.
 
 ## Moving off a key-based library

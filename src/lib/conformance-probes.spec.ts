@@ -134,8 +134,8 @@ const DELEGATION_PROBES: Probe[] = [
     },
     {
         rows: 'MSG-1, MSG-2',
-        what: 'finding entries in a body, or choosing text from an entry',
-        pattern: /\.template\b|\.code\b|templateMarkers|SERVER_MESSAGE_CODES/,
+        what: 'finding entries where the configuration says they sit, reading their pieces, or choosing text from an entry',
+        pattern: /\.template\b|\.code\b|\bpieces\b|templateMarkers|toServerMessage|\bdig\(/,
     },
     {
         rows: 'MIG-1..8, SNAP-3',

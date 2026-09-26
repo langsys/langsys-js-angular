@@ -1,18 +1,31 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import * as core from 'langsys-js-typescript';
 import { currentlyLoadedLocale, sTranslations, type ServerMessage } from 'langsys-js-typescript';
 import vectors from '../../test/fixtures/server-message-vectors.json';
 import { LANGSYS_CONFIG } from './config';
 import { MessagePipe } from './message.pipe';
+import { resolveServerMessages } from '../public-api';
 
 /**
- * MSG-5 and MSG-6 through this binding, against the real base SDK and the shared vectors
+ * MSG-1, MSG-5 and MSG-6 through this binding, against the real base SDK and the shared vectors
  * (`test/fixtures/server-message-vectors.json`, vendored byte-exact from langsys-js-typescript).
+ *
+ * Every `resolve` row is replayed through `resolveServerMessages` as this package exports it: entries
+ * are read only where the app's configuration says they sit, over the framework's own error body.
  *
  * Every `render` row is replayed through a rendered template — `{{ entry | tMessage: category }}` —
  * so what is asserted is what a user sees, not a return value.
  */
+
+type ResolveRow = {
+    id: string;
+    body: unknown;
+    options: core.ResolveServerMessagesOptions;
+    expected: ServerMessage[];
+    body_unchanged?: boolean;
+};
 
 type RenderRow = {
     id: string;
@@ -82,7 +95,7 @@ describe('MSG-5 — the shared render vectors, through the tMessage pipe', () =>
     const rows = (vectors as unknown as { render: RenderRow[] }).render;
 
     it('carries every render row', () => {
-        expect(rows).toHaveLength(10);
+        expect(rows).toHaveLength(12);
     });
 
     it.each(rows.map((r) => [r.id, r] as const))('%s', (_id, row) => {
@@ -93,9 +106,32 @@ describe('MSG-5 — the shared render vectors, through the tMessage pipe', () =>
     });
 });
 
+describe("MSG-1 — the shared resolve vectors, through this package's export", () => {
+    const rows = (vectors as unknown as { resolve: ResolveRow[] }).resolve;
+
+    it("is the core's own function, re-exported by reference", () => {
+        expect(resolveServerMessages).toBe(core.resolveServerMessages);
+    });
+
+    it('carries every resolve row', () => {
+        expect(rows).toHaveLength(10);
+    });
+
+    it.each(rows.map((r) => [r.id, r] as const))('%s', (_id, row) => {
+        const body = structuredClone(row.body);
+        expect(resolveServerMessages(body, row.options)).toEqual(row.expected);
+        if (row.body_unchanged) expect(body).toEqual(row.body);
+    });
+
+    it('with neither a key nor a resolver there is nowhere to look, and it throws', () => {
+        expect(() => resolveServerMessages({ langsys_errors: [] }, {})).toThrow(/key/);
+    });
+});
+
 describe('MSG-5 — the pipe in a template', () => {
     const entry: ServerMessage = {
-        code: 'mismatch',
+        field: 'password_confirmation',
+        code: 'Confirmed',
         message: 'The passwords do not match.',
         template: 'The passwords do not match.',
     };

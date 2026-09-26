@@ -96,6 +96,7 @@ export type {
     ParamsFor,
     ResolveServerMessagesOptions,
     ServerMessage,
+    ServerMessagePieces,
     Signal as SdkSignal,
     TArgs,
     TFunction,
