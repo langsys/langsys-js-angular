@@ -3,16 +3,18 @@ import {
     ElementRef,
     Input,
     PLATFORM_ID,
-    Renderer2,
     inject,
     type AfterViewInit,
+    type OnInit,
     type OnChanges,
     type OnDestroy,
     type SimpleChanges,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { CONTENT_BLOCK_MARKER_ATTR, Translate } from 'langsys-js-typescript';
+import { Translate } from 'langsys-js-typescript';
 import type { ParamPrimitive } from 'langsys-js-typescript';
+import { LangsysService } from '../langsys.service';
+import { declareBlockHost, insideBlock, renderBlockHost } from '../server-blocks';
 
 /**
  * Register an element's whole subtree as a translatable **content block**.
@@ -38,7 +40,7 @@ import type { ParamPrimitive } from 'langsys-js-typescript';
     selector: '[lsTranslate]',
     standalone: true,
 })
-export class TranslateDirective implements AfterViewInit, OnChanges, OnDestroy {
+export class TranslateDirective implements OnInit, AfterViewInit, OnChanges, OnDestroy {
     /** Category the block's tokens are registered under. */
     @Input() category?: string;
     /** Stable id for the block; otherwise the SDK hashes category + tokens. */
@@ -49,11 +51,28 @@ export class TranslateDirective implements AfterViewInit, OnChanges, OnDestroy {
     @Input() params?: Record<string, ParamPrimitive>;
 
     private readonly host = inject(ElementRef<HTMLElement>);
-    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
-    private readonly renderer = inject(Renderer2);
+    /** On a server, the request's scope to render in; in a browser, the core's `Translate` runs directly. */
+    private readonly langsys = isPlatformBrowser(inject(PLATFORM_ID)) ? null : inject(LangsysService);
     private instance: Translate | null = null;
 
+    ngOnInit(): void {
+        if (this.langsys) declareBlockHost(this.host.nativeElement, this.custom_id, this.category);
+    }
+
     ngAfterViewInit(): void {
+        if (this.langsys) {
+            const host = this.host.nativeElement as HTMLElement;
+            if (insideBlock(host)) return;
+            this.langsys.inRequestScope(() =>
+                renderBlockHost(host, {
+                    category: this.category,
+                    params: this.params,
+                    label: this.label,
+                    id: this.custom_id,
+                })
+            );
+            return;
+        }
         this.create();
     }
 
@@ -76,14 +95,6 @@ export class TranslateDirective implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     private create(): void {
-        if (!this.isBrowser) {
-            // The core's block path needs a real DOM, so a server render serves the block's
-            // source. An identity the app supplied is stamped here all the same, so the served
-            // block can be traced to its id, and the client's `Translate` adopts it (MARK-1, MARK-3).
-            if (this.custom_id)
-                this.renderer.setAttribute(this.host.nativeElement, CONTENT_BLOCK_MARKER_ATTR, this.custom_id);
-            return;
-        }
         this.instance = new Translate(this.host.nativeElement as HTMLElement, {
             category: this.category,
             custom_id: this.custom_id,

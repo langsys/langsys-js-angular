@@ -300,13 +300,26 @@ export class LangsysService {
             this.serverState!.t.set(scope.t);
             this.serverState!.locale.set(scope.locale);
             this.serverState!.catalog.set(seed.catalog);
-            this.transferState.set(LANGSYS_SEED, seed);
+            // Read when the page is serialized, so it names every block the render produced.
+            this.transferState.onSerialize(LANGSYS_SEED, () => scope.seed());
             if (!failed) this._ready.set(true);
             return res;
         } catch (e) {
             this._error.set(e instanceof Error ? e.message : String(e));
             return null;
         }
+    }
+
+    /**
+     * Run `fn` where this request's core state is current: on a server, inside the request's scope,
+     * and not at all before it opens; in a browser, directly. The seam the DOM directives render
+     * through.
+     *
+     * @internal
+     */
+    inRequestScope<R>(fn: () => R): R | undefined {
+        if (!this.isServer) return fn();
+        return this.scope ? this.scope.run(fn) : undefined;
     }
 
     /** The configured snapshot, verified; null when it is refused (the reason reaches `error`). */

@@ -343,9 +343,14 @@ The pipes and `LangsysService` read the request's scope. The base SDK's own glob
 request-scoped: in a server render, translate through the pipe or the service, not by calling
 the SDK's `t` or `LangsysApp.t` directly — those read no request's catalog.
 
-`lsTranslate` and `lsPhrase` need a real DOM, so a server render serves their content as source
-and translates it after hydration. A block with an explicit `custom_id` is stamped with it on the
-server, so the served block can be traced to its id.
+On the server, an `lsTranslate` block renders from the request's catalog: it is served translated
+when the catalog holds it, stamped with its id either way, and a block the catalog lacks is
+registered after the response. The translation is written into the nodes Angular already rendered,
+so hydration reuses them; a translation that would reorder the block's markup is served as source,
+still stamped, and translated after hydration. A block holding nested `lsTranslate` blocks is
+served as source the same way; each nested block is still registered once, as a block of its own.
+An `lsPhrase` inside a block renders with it; one on its own is served as source and translated
+after hydration.
 
 > **Precondition — `ssrTokenStrategy: 'server'` requires the origin server's IP address to be
 > allow-listed for the project.** Without it the server lane fails silently and totally: no error,

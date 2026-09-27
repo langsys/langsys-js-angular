@@ -53,6 +53,10 @@ export class PhraseDirective implements AfterViewInit, OnChanges, OnDestroy {
     private instance: Phrase | null = null;
 
     ngAfterViewInit(): void {
+        // On a server a phrase host inside a block renders with its block. One on its own is served
+        // as source and translated after hydration: the core applies a rendered tree to a host's
+        // children only, not to the phrase host itself.
+        if (!this.isBrowser) return;
         this.create();
     }
 
@@ -74,7 +78,6 @@ export class PhraseDirective implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     private create(): void {
-        if (!this.isBrowser) return;
         this.instance = new Phrase(this.host.nativeElement as HTMLElement, {
             category: this.category,
             params: this.params,

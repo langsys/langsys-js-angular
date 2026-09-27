@@ -57,7 +57,7 @@ export interface ServedRequest {
     html: string;
     text: (id: string) => string;
     host: (id: string) => HTMLElement;
-    seed: { locale: string; catalog: Record<string, Record<string, unknown>> } | null;
+    seed: { locale: string; catalog: Record<string, Record<string, unknown>>; blocks: Record<string, unknown> } | null;
     error: string | null;
     /** End the request: destroy its application, as Angular SSR does once the document is serialized. */
     end: () => void;
@@ -97,7 +97,10 @@ export async function serveRequest(
         html: el.innerHTML,
         text: (id) => el.querySelector(`#${id}`)?.textContent?.trim() ?? '',
         host: (id) => el.querySelector(`#${id}`) as HTMLElement,
-        seed: TestBed.inject(TransferState).get(LANGSYS_SEED, null) as ServedRequest['seed'],
+        // As the page serializes it: the seed is read at serialization, naming every rendered block.
+        seed: (JSON.parse(TestBed.inject(TransferState).toJson()) as Record<string, unknown>)[
+            LANGSYS_SEED
+        ] as ServedRequest['seed'],
         error: svc.error(),
         end: () => TestBed.resetTestingModule(),
     };

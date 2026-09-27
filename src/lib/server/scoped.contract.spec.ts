@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { LangsysApp } from 'langsys-js-typescript';
+import { LangsysApp, generateCustomId, tokenizeElement } from 'langsys-js-typescript';
 import { startContractFixture, until, type AcceptedState, type ContractFixture } from '../../../test/contract-fixture';
 import { SERVER_SEED, serveRequest, subscriptions, type ServedRequest } from '../../../test/server-render-scenario';
 
@@ -60,10 +60,13 @@ describe('SRV-1 — the served bytes', () => {
         expect(it_.text('miss')).toBe('Not in any catalog');
     });
 
-    it('a block with an explicit custom_id is stamped with it; one without is served as source, unstamped', () => {
+    it("a block is stamped with the app's custom_id, or with the id the tokenizer derives from the same markup", () => {
+        const reference = document.createElement('section');
+        reference.innerHTML = '<h2>Pricing plans</h2>';
         expect(it_.host('named').getAttribute('data-ls-contentblock')).toBe('pricing-hero');
-        expect(it_.host('unnamed').hasAttribute('data-ls-contentblock')).toBe(false);
-        expect(it_.text('unnamed')).toBe('Pricing plans');
+        expect(it_.host('unnamed').getAttribute('data-ls-contentblock')).toBe(
+            generateCustomId('UI', tokenizeElement(reference).tokens)
+        );
     });
 });
 
@@ -78,8 +81,9 @@ describe('SRV-3 — misses are collected after the response', () => {
 });
 
 describe('SRV-4 — the hydration seed', () => {
-    it("is the request's own locale and catalog, in TransferState", () => {
+    it("is the request's own locale, catalog and rendered blocks, in TransferState", () => {
         expect(it_.seed?.locale).toBe('it-it');
         expect(it_.seed?.catalog['UI']?.['Pricing']).toBe('Prezzi');
+        expect(Object.keys(it_.seed?.blocks ?? {})).toContain('pricing-hero');
     });
 });
