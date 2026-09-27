@@ -103,8 +103,11 @@ export const BLOCKS_SEED = {
                     category: 'UI',
                     custom_id: 'ae9842ac779c6667522759ececb198d5',
                     phrases: [
-                        { phrase: 'Inner title', translations: { 'it-it': 'Titolo interno' } },
-                        { phrase: 'Inner body', translations: { 'it-it': 'Corpo interno' } },
+                        {
+                            phrase: 'Inner title',
+                            translations: { 'it-it': 'Titolo interno', 'de-de': 'Innerer Titel' },
+                        },
+                        { phrase: 'Inner body', translations: { 'it-it': 'Corpo interno', 'de-de': 'Innerer Text' } },
                     ],
                 },
             ],

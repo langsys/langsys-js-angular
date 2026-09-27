@@ -2,10 +2,9 @@ import { makeStateKey } from '@angular/core';
 import {
     LangsysApp,
     canonicalizeLocale,
-    type iCategories,
     type iLangsysInitConfig,
     type iLangsysResponse,
-    type SeededBlock,
+    type RequestScope,
 } from 'langsys-js-typescript';
 
 /**
@@ -16,12 +15,7 @@ import {
  */
 
 /** The seed a server render hands its client through `TransferState`, for the core's seed before hydration (SRV-4). */
-export const LANGSYS_SEED = makeStateKey<{
-    locale: string;
-    catalog: iCategories;
-    /** Every block the server rendered. The browser's `Translate` on each block's host registers it. */
-    blocks?: Record<string, SeededBlock>;
-}>('langsys-seed');
+export const LANGSYS_SEED = makeStateKey<ReturnType<RequestScope['seed']>>('langsys-seed');
 
 /**
  * The core's configuration is process state, so on a server it is set once per project and key,

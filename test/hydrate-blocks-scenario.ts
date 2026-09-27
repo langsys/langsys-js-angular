@@ -1,3 +1,5 @@
+import { LangsysService } from '../src/lib/langsys.service';
+import { until } from './contract-fixture';
 import { ɵsetDocument as setDocument, type ApplicationRef } from '@angular/core';
 import { bootstrapApplication, provideClientHydration } from '@angular/platform-browser';
 import { provideLangsys } from '../src/lib/provide-langsys';
@@ -12,9 +14,18 @@ export interface HydratedBlocks {
     servedNamed: string;
     first: { named: string; reused: boolean };
     logged: string[];
+    /** The inner nested block, served translated, after the client switches to de-de. */
+    afterSwitch: { text: string; stamp: string | null; resolved: string | null };
+    /** How many registration requests the client sent after the switch. */
+    sentAfterSwitch: number;
 }
 
-export async function hydrateBlocks(apiUrl: string, strategy: 'server' | 'client' = 'server'): Promise<HydratedBlocks> {
+export async function hydrateBlocks(
+    apiUrl: string,
+    strategy: 'server' | 'client' = 'server',
+    /** The number of registration requests sent so far, from the caller's fetch spy. */
+    sent: () => number = () => 0
+): Promise<HydratedBlocks> {
     const html = await serveBlocks({ apiUrl, ssrTokenStrategy: strategy }, [provideClientHydration()]);
     document.documentElement.innerHTML = html.replace(/^[\s\S]*?<html[^>]*>/, '').replace(/<\/html>[\s\S]*$/, '');
     const heading = () => document.querySelector('#named h2');
@@ -36,6 +47,19 @@ export async function hydrateBlocks(apiUrl: string, strategy: 'server' | 'client
 
     // Long enough for the client's registrations to be sent.
     await new Promise((r) => setTimeout(r, 1500));
+    const sentBefore = sent();
+    const langsys = app.injector.get(LangsysService);
+    langsys.setLocale('de-de');
+    await until(() => langsys.currentLocale() === 'de-de').catch(() => {});
+    app.tick();
+    await new Promise((r) => setTimeout(r, 1000));
+    const inner = document.querySelector('#inner');
+    const afterSwitch = {
+        text: inner?.textContent ?? '',
+        stamp: inner?.getAttribute('data-ls-contentblock') ?? null,
+        resolved: inner?.getAttribute('data-ls-resolved') ?? null,
+    };
+    const sentAfterSwitch = sent() - sentBefore;
     app.destroy();
-    return { servedNamed, first, logged };
+    return { servedNamed, first, logged, afterSwitch, sentAfterSwitch };
 }

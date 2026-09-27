@@ -366,7 +366,7 @@ describe('LangsysService', () => {
 
             const seedCatalog = LangsysApp.seedCatalog as unknown as ReturnType<typeof vi.fn>;
             expect(seedCatalog).toHaveBeenCalledTimes(1);
-            expect(seedCatalog.mock.calls[0]).toEqual([seed.catalog, 'it-it']);
+            expect(seedCatalog.mock.calls[0]).toEqual([seed.catalog, 'it-it', seed]);
             expect(seedCatalog.mock.invocationCallOrder[0]).toBeLessThan(
                 (LangsysApp.init as unknown as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
             );

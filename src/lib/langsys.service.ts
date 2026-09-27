@@ -196,7 +196,11 @@ export class LangsysService {
             const seed = this.transferState.get(LANGSYS_SEED, null);
             if (seed) {
                 this.transferState.remove(LANGSYS_SEED);
-                LangsysApp.seedCatalog(seed.catalog, seed.locale);
+                // With the whole seed: the blocks the server rendered, so a block served translated
+                // re-renders from its source on a client-side locale switch, and what the server
+                // collected. Its blocks are not registered from here: every served block has a
+                // directive whose `Translate` registers it.
+                LangsysApp.seedCatalog(seed.catalog, seed.locale, seed);
             }
 
             // Synchronously, before the first await: `init()` runs in APP_INITIALIZER, so the

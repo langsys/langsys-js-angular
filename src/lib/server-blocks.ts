@@ -1,6 +1,7 @@
 import {
     CONTENT_BLOCK_MARKER_ATTR,
     CONTENT_BLOCK_MARKER_ATTRS,
+    PHRASE_MARKER_ATTR,
     applyRendered,
     blockNodesOf,
     registerBlock,
@@ -11,7 +12,7 @@ import {
 } from 'langsys-js-typescript';
 
 /**
- * Content blocks on a server (spec SRV-1, MARK-1, SRV-5). The core's DOM classes
+ * Content blocks and rich phrases on a server (spec SRV-1, MARK-1, SRV-5). The core's DOM classes
  * are the browser's; on a server a directive reads its host into the core's block tree, renders it
  * from the request's catalog, writes the result into the nodes Angular already rendered, and
  * registers the block for the request's flush. Called inside the request's scope.
@@ -36,25 +37,19 @@ export function declareBlockHost(host: Element, customId: string | undefined, ca
 export function renderBlockHost(host: Element, options: BlockOptions): void {
     const nodes = blockNodesOf(host);
     const rendered = renderBlock(nodes, options);
-    // A block holding nested blocks is served as source: the rendered tree's nested hosts carry
-    // their ids and resolved markers, but applying it writes neither onto the nested elements, and a
-    // translated nested block served without them is read on the client as new source text.
-    const nested = holdsNestedBlock(nodes);
-    if (nested || !applyRendered(host, rendered).applied) {
+    if (!applyRendered(host, rendered).applied) {
         if (rendered.customId) host.setAttribute(CONTENT_BLOCK_MARKER_ATTR, rendered.customId);
-        warnUnrenderedBlock(
-            nested ? 'it contains nested blocks' : 'its translation reorders the markup Angular rendered'
-        );
+        warnUnrenderedBlock('its translation reorders the markup Angular rendered');
     }
     registerBlock(nodes, { ...options, host });
 }
 
-/** Whether a block's tree holds a nested block host. */
-function holdsNestedBlock(nodes: readonly BlockNode[]): boolean {
-    return nodes.some(
-        (node) =>
-            'tag' in node &&
-            (CONTENT_BLOCK_MARKER_ATTRS.some((name) => node.attrs?.[name] !== undefined) ||
-                holdsNestedBlock(node.children ?? []))
-    );
+/** Render a rich-phrase host in place: the host is the tree's one element, applied to itself. */
+export function renderPhraseHost(host: Element, options: BlockOptions): void {
+    const node: BlockNode = { tag: host.localName, attrs: { [PHRASE_MARKER_ATTR]: '' }, children: blockNodesOf(host) };
+    const rendered = renderBlock([node], options);
+    if (!applyRendered(host, rendered.nodes, { self: true }).applied) {
+        warnUnrenderedBlock('its translation reorders the markup Angular rendered');
+    }
+    registerBlock([node], { ...options, host });
 }

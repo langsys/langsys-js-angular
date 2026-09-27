@@ -84,13 +84,21 @@ describe('SRV-1 — the served bytes', () => {
     });
 });
 
+describe('SRV-1 — a rich phrase on its own', () => {
+    it('is served translated, its markup kept in place, and marked resolved', () => {
+        expect(html).toMatch(
+            /<p id="phrase"[^>]*data-ls-resolved="it-it"[^>]*>Leggi i <a href="\/terms">termini<\/a> prima di acquistare\.<\/p>/
+        );
+    });
+});
+
 describe('SRV-5 — nested blocks, depth 3', () => {
     it('the outermost block is stamped with the id the browser derives, its nested blocks excised', () => {
         expect(served(html, 'outer').stamp).toBe(BROWSER_IDS.outer);
     });
 
     it('only the outermost block host registers; nested hosts are registered through its tree', () => {
-        expect(registeredFrom).toEqual(['named', 'unnamed', 'reorder', 'outer']);
+        expect(registeredFrom).toEqual(['named', 'unnamed', 'phrase', 'reorder', 'outer']);
     });
 
     it('a nested block the catalog lacks registers exactly once, as a block, under the id the browser derives', () => {
@@ -99,8 +107,10 @@ describe('SRV-5 — nested blocks, depth 3', () => {
         }
     });
 
-    it('a block holding nested blocks is served as source, stamped, its nested blocks with it', () => {
-        expect(html).toContain('<p>Inner title</p><p>Inner body</p>');
+    it('nested blocks are stamped with the ids the browser derives; one the catalog holds is served translated and marked resolved', () => {
+        expect(served(html, 'middle')).toMatchObject({ stamp: BROWSER_IDS.middle, resolved: null });
+        expect(served(html, 'inner')).toMatchObject({ stamp: BROWSER_IDS.inner, resolved: 'it-it' });
+        expect(html).toContain('<p>Titolo interno</p><p>Corpo interno</p>');
     });
 
     it('a nested block the catalog holds registers nothing', () => {

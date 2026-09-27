@@ -13,6 +13,8 @@ import {
 import { isPlatformBrowser } from '@angular/common';
 import { PHRASE_MARKER_ATTR, Phrase } from 'langsys-js-typescript';
 import type { ParamPrimitive } from 'langsys-js-typescript';
+import { LangsysService } from '../langsys.service';
+import { insideBlock, renderPhraseHost } from '../server-blocks';
 
 /**
  * Keep a markup-bearing run of text as **one** translatable phrase.
@@ -49,14 +51,18 @@ export class PhraseDirective implements AfterViewInit, OnChanges, OnDestroy {
     @HostBinding(`attr.${PHRASE_MARKER_ATTR}`) readonly marker = '';
 
     private readonly host = inject(ElementRef<HTMLElement>);
-    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+    /** On a server, the request's scope to render in; in a browser, the core's `Phrase` runs directly. */
+    private readonly langsys = isPlatformBrowser(inject(PLATFORM_ID)) ? null : inject(LangsysService);
     private instance: Phrase | null = null;
 
     ngAfterViewInit(): void {
-        // On a server a phrase host inside a block renders with its block. One on its own is served
-        // as source and translated after hydration: the core applies a rendered tree to a host's
-        // children only, not to the phrase host itself.
-        if (!this.isBrowser) return;
+        if (this.langsys) {
+            // A phrase host inside a block renders with its block.
+            const host = this.host.nativeElement as HTMLElement;
+            if (insideBlock(host)) return;
+            this.langsys.inRequestScope(() => renderPhraseHost(host, { category: this.category, params: this.params }));
+            return;
+        }
         this.create();
     }
 

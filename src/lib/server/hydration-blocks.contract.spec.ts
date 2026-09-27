@@ -13,6 +13,7 @@ import { generateCustomId } from 'langsys-js-typescript';
 let fx: ContractFixture;
 let run: HydratedBlocks;
 const registered: string[] = [];
+let requests = 0;
 
 beforeAll(async () => {
     fx = await startContractFixture();
@@ -23,6 +24,7 @@ beforeAll(async () => {
     const realFetch = globalThis.fetch;
     vi.stubGlobal('fetch', (url: unknown, init?: RequestInit) => {
         if (init?.method === 'POST' && String(url).includes('translatable-items')) {
+            requests++;
             for (const item of (JSON.parse(String(init.body)) as { translatable_items: Array<{ custom_id?: string }> })
                 .translatable_items) {
                 if (item.custom_id) registered.push(item.custom_id);
@@ -30,7 +32,7 @@ beforeAll(async () => {
         }
         return realFetch(url as never, init);
     });
-    run = await hydrateBlocks(fx.baseUrl, 'client');
+    run = await hydrateBlocks(fx.baseUrl, 'client', () => requests);
 });
 afterAll(async () => {
     vi.unstubAllGlobals();
@@ -61,5 +63,19 @@ describe('what the client registers after hydrating the served blocks', () => {
     it('no block under an id derived from translated text', () => {
         expect(registered).not.toContain(generateCustomId('UI', ['Titolo interno', 'Corpo interno']));
         expect(registered).not.toContain(generateCustomId('UI', ['Piani tariffari']));
+    });
+});
+
+describe('a client-side locale switch over a block served translated', () => {
+    it('re-renders it from its source in the new locale, both markers following', () => {
+        expect(run.afterSwitch).toEqual({
+            text: 'Innerer TitelInnerer Text',
+            stamp: BROWSER_IDS.inner,
+            resolved: 'de-de',
+        });
+    });
+
+    it('registers nothing', () => {
+        expect(run.sentAfterSwitch).toBe(0);
     });
 });
