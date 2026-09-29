@@ -10,6 +10,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Initial release: an Angular 17+ binding over `langsys-js-typescript`, the Angular sibling of
 `langsys-js-vue`.
 
+Built on `langsys-js-typescript` ^0.6.5, so a missing ICU argument (the `<name>_gender` Langsys adds in
+gendered locales) renders the `other` branch instead of raw ICU, and installing the package next to
+`langsys-js-typescript` resolves to a single copy of the base SDK. `lsPhrase`'s `params` input is typed
+`Record<string, ParamPrimitive>`, like the React and Vue bindings.
+
 ### Added
 
 - **`provideLangsys(config)`** — standalone bootstrap provider. Registers the service, optionally

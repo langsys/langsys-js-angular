@@ -11,7 +11,7 @@ import {
     type SimpleChanges,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Phrase } from 'langsys-js-typescript';
+import { Phrase, type ParamPrimitive } from 'langsys-js-typescript';
 
 /**
  * Keep a markup-bearing run of text as **one** translatable phrase.
@@ -38,7 +38,7 @@ export class PhraseDirective implements AfterViewInit, OnChanges, OnDestroy {
     /** Category the phrase is registered under. */
     @Input() category?: string;
     /** Runtime values (e.g. `{ n: 3 }` for pluralization). */
-    @Input() params?: Record<string, unknown>;
+    @Input() params?: Record<string, ParamPrimitive>;
 
     /** Marks the host so the SDK's renderer can find it. */
     @HostBinding('attr.data-ls-phrase') readonly marker = '';
